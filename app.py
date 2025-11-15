@@ -294,6 +294,92 @@ def index():
 def favicon():
     return '', 204  # No content response
 
+# New bubbly UI API routes
+@app.route('/api/questions', methods=['GET'])
+def api_get_questions():
+    """Return randomized quiz questions for bubbly UI"""
+    all_questions = []
+    
+    # Get 3 random questions from each category
+    for category in QUESTIONS:
+        questions = random.sample(QUESTIONS[category], min(3, len(QUESTIONS[category])))
+        for q in questions:
+            q['category'] = category
+        all_questions.extend(questions)
+    
+    # Randomize the order
+    random.shuffle(all_questions)
+    
+    return jsonify(all_questions)
+
+@app.route('/api/calculate', methods=['POST'])
+def api_calculate():
+    """Calculate CO2 emissions from answers for bubbly UI"""
+    data = request.json
+    answers = data.get('answers', {})
+    
+    # Initialize results
+    results = {
+        "Home": {"co2": 0, "percentage": 0},
+        "Mobility": {"co2": 0, "percentage": 0},
+        "Food": {"co2": 0, "percentage": 0},
+        "Consumption": {"co2": 0, "percentage": 0}
+    }
+    
+    # Calculate CO2 for each category
+    for question_id, answer in answers.items():
+        # Find the question
+        category = answer.get('category')
+        co2_value = answer.get('co2', 0)
+        
+        if category in results:
+            results[category]["co2"] += co2_value
+    
+    # Annualize the results (multiply by 52 weeks, divide by 3 questions to get average)
+    AVERAGES = {
+        "Home": 2000,
+        "Mobility": 2500,
+        "Food": 2000,
+        "Consumption": 1500
+    }
+    
+    for category in results:
+        annual_co2 = results[category]["co2"] * (52 / 3)
+        results[category]["co2_annual"] = round(annual_co2, 2)
+        results[category]["average"] = AVERAGES[category]
+        results[category]["percentage"] = round((annual_co2 / AVERAGES[category]) * 100, 1)
+        results[category]["difference"] = round(annual_co2 - AVERAGES[category], 2)
+    
+    # Sort categories by how far they are from average (worst first)
+    sorted_categories = sorted(
+        results.items(),
+        key=lambda x: abs(x[1]["difference"]),
+        reverse=True
+    )
+    
+    # Add tips and products
+    for category, data in results.items():
+        # Prioritize tips based on how far from average
+        data["tips"] = TIPS[category][:3]
+        data["products"] = PRODUCTS[category]
+    
+    # Calculate total
+    total_co2 = sum(r["co2_annual"] for r in results.values())
+    total_average = sum(AVERAGES.values())
+    
+    response = {
+        "categories": results,
+        "total": {
+            "co2": round(total_co2, 2),
+            "average": total_average,
+            "percentage": round((total_co2 / total_average) * 100, 1)
+        },
+        "priority_order": [cat for cat, _ in sorted_categories]
+    }
+    
+    return jsonify(response)
+
+# Old API routes (kept for compatibility)
 @app.route('/get-questions', methods=['GET'])
 def get_questions():
     """Return randomized questions"""

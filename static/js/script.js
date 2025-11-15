@@ -32,28 +32,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initializeApp() {
     // Start quiz button
-    document.getElementById('start-quiz-btn').addEventListener('click', startQuiz);
+    document.getElementById('start-btn').addEventListener('click', startQuiz);
     
-    // Show landing page
-    showPage('landing-page');
+    // Retake quiz button
+    document.getElementById('retake-btn').addEventListener('click', resetQuiz);
+    
+    // Show start screen
+    showScreen('start-screen');
 }
 
 // ===================================
-// Page Navigation
+// Screen Navigation
 // ===================================
-function showPage(pageId) {
-    document.querySelectorAll('.page').forEach(page => {
-        page.classList.remove('active');
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
     });
-    document.getElementById(pageId).classList.add('active');
+    document.getElementById(screenId).classList.add('active');
     
     // Update screen context for chatbot
-    if (pageId === 'landing-page') {
+    if (screenId === 'start-screen') {
         currentScreenContext = 'start';
         currentQuestionContext = null;
-    } else if (pageId === 'quiz-page') {
+    } else if (screenId === 'quiz-screen') {
         currentScreenContext = 'quiz';
-    } else if (pageId === 'results-page') {
+    } else if (screenId === 'results-screen') {
         currentScreenContext = 'results';
         currentQuestionContext = null;
         console.log('✅ Switched to Results - Question context cleared');
@@ -71,7 +74,7 @@ function showPage(pageId) {
 async function startQuiz() {
     try {
         // Fetch questions from backend
-        const response = await fetch('/get-questions');
+        const response = await fetch('/api/questions');
         questions = await response.json();
         
         // Reset state - create a fresh empty array
@@ -85,7 +88,7 @@ async function startQuiz() {
         document.getElementById('total-questions').textContent = questions.length;
         
         // Switch to quiz screen
-        showPage('quiz-page');
+        showScreen('quiz-screen');
         
         // Display first question
         displayQuestion();
@@ -124,19 +127,19 @@ function displayQuestion() {
     const categoryBadge = document.getElementById('category-badge');
     categoryBadge.innerHTML = `
         <i class="fas ${iconClass}"></i>
-        <span>${question.category}</span>
+        <span id="category-name">${question.category}</span>
     `;
     
     // Update question text
     document.getElementById('question-text').textContent = question.question;
     
-    // Display answers
-    const answersContainer = document.getElementById('answers-container');
-    answersContainer.innerHTML = '';
+    // Display answers (using options-container for bubbly UI)
+    const optionsContainer = document.getElementById('options-container');
+    optionsContainer.innerHTML = '';
     
     question.options.forEach((option, index) => {
         const button = document.createElement('button');
-        button.className = 'answer-option';
+        button.className = 'option-btn';
         button.textContent = option.text;
         
         // Check if this was previously selected
@@ -146,13 +149,13 @@ function displayQuestion() {
         }
         
         button.addEventListener('click', () => selectAnswer(index, option, question));
-        answersContainer.appendChild(button);
+        optionsContainer.appendChild(button);
     });
 }
 
 function selectAnswer(index, option, question) {
     // Visual feedback - select the answer
-    const buttons = document.querySelectorAll('.answer-option');
+    const buttons = document.querySelectorAll('.option-btn');
     buttons.forEach((btn, idx) => {
         btn.classList.remove('selected');
         if (idx === index) {
@@ -182,7 +185,7 @@ function selectAnswer(index, option, question) {
         } else {
             finishQuiz();
         }
-    }, 300);
+    }, 400);
 }
 
 async function finishQuiz() {
@@ -196,13 +199,29 @@ async function finishQuiz() {
         console.log('Original array length:', userAnswers.length, 'Valid answers:', validAnswers.length);
         console.log('Question numbers in submission:', validAnswers.map(a => a.questionNumber));
         
+        // Prepare payload using the structure the backend expects
+        const payload = {
+            answers: {}
+        };
+        
+        // Convert array to object keyed by questionId
+        validAnswers.forEach(answer => {
+            payload.answers[answer.questionId] = {
+                category: answer.category,
+                co2: answer.co2,
+                text: answer.selectedOption
+            };
+        });
+        
+        console.log('Sending to backend:', payload);
+        
         // Send answers to backend
-        const response = await fetch('/calculate-results', {
+        const response = await fetch('/api/calculate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ answers: validAnswers })
+            body: JSON.stringify(payload)
         });
         
         console.log('Response status:', response.status);
@@ -223,7 +242,7 @@ async function finishQuiz() {
         displayResults(results);
         
         // Switch to results screen
-        showPage('results-page');
+        showScreen('results-screen');
         
         // Auto-open chatbot after a delay
         setTimeout(() => {
@@ -233,12 +252,15 @@ async function finishQuiz() {
                 isChatbotOpen = true;
                 
                 // Add welcome message
-                const diff = currentResults.total_difference;
+                const totalCO2 = results.total.co2;
+                const avgCO2 = results.total.average;
+                const diff = totalCO2 - avgCO2;
+                
                 let message = "🎉 Results are in! ";
                 if (diff > 0) {
-                    message += `You're ${diff} kg above average. Let's find your easiest wins to close that gap! What questions do you have?`;
+                    message += `You're ${diff.toFixed(0)} kg above average. Let's find your easiest wins to close that gap! What questions do you have?`;
                 } else if (diff < 0) {
-                    message += `Nice work - you're ${Math.abs(diff)} kg below average! Want to go even further? I've got ideas! 🌱`;
+                    message += `Nice work - you're ${Math.abs(diff).toFixed(0)} kg below average! Want to go even further? I've got ideas! 🌱`;
                 } else {
                     message += "You're right at average. Ready to level up your eco-game? Let's chat!";
                 }
@@ -255,90 +277,123 @@ async function finishQuiz() {
 
 function displayResults(data) {
     // Update total emissions
-    document.getElementById('total-co2').textContent = `${data.total_emissions.toLocaleString()} kg CO2`;
+    document.getElementById('total-co2').textContent = data.total.co2.toLocaleString();
+    document.getElementById('total-percentage').textContent = data.total.percentage;
     
     // Create results breakdown
-    const breakdownContainer = document.getElementById('results-breakdown');
-    breakdownContainer.innerHTML = '';
+    const categoriesContainer = document.getElementById('categories-results');
+    categoriesContainer.innerHTML = '';
     
-    data.results.forEach(result => {
-        const categoryDiv = createCategoryResult(result);
-        breakdownContainer.appendChild(categoryDiv);
+    // Display categories in priority order
+    data.priority_order.forEach(categoryName => {
+        const categoryData = data.categories[categoryName];
+        const categoryDiv = createCategoryResult(categoryName, categoryData);
+        categoriesContainer.appendChild(categoryDiv);
     });
 }
 
-function createCategoryResult(result) {
-    const iconClass = categoryIcons[result.category];
-    const average = result.average || 0;
+function createCategoryResult(categoryName, data) {
+    const iconClass = categoryIcons[categoryName];
     
-    // Calculate percentages for bar chart
-    const maxValue = Math.max(result.emissions, average) * 1.2;
-    const userPercent = (result.emissions / maxValue) * 100;
-    const avgPercent = (average / maxValue) * 100;
+    const comparisonClass = data.difference < 0 ? 'better' : 'worse';
+    const comparisonText = data.difference < 0 
+        ? `${Math.abs(data.difference).toFixed(0)} kg below average` 
+        : `${data.difference.toFixed(0)} kg above average`;
     
     const div = document.createElement('div');
     div.className = 'category-result';
     
     div.innerHTML = `
-        <div class="category-result-header">
-            <div class="category-info">
+        <div class="category-header">
+            <div class="category-title-group">
                 <div class="category-icon">
                     <i class="fas ${iconClass}"></i>
                 </div>
-                <h3 class="category-name">${result.category}</h3>
+                <h3>${categoryName}</h3>
             </div>
-            <div class="category-emissions">
-                <div class="emissions-label">Your Daily Emissions</div>
-                <div class="emissions-value">${result.emissions.toFixed(1)} kg CO2</div>
-            </div>
-        </div>
-        
-        <div class="comparison-bar">
-            <div class="comparison-label">
-                <span>You: ${result.emissions.toFixed(1)} kg</span>
-                <span>Average: ${average.toFixed(1)} kg</span>
-            </div>
-            <div class="bar-container">
-                <div class="bar-average" style="width: ${avgPercent}%"></div>
-                <div class="bar-user" style="width: ${userPercent}%"></div>
+            <div class="category-co2">
+                <div class="co2-value">${data.co2_annual.toLocaleString()} kg CO₂/year</div>
+                <div class="co2-comparison">
+                    Average: ${data.average.toLocaleString()} kg/year
+                </div>
+                <div class="comparison-badge ${comparisonClass}">
+                    ${comparisonText}
+                </div>
             </div>
         </div>
         
-        <div class="recommendations">
-            <h4 class="recommendations-title">
-                <i class="fas fa-lightbulb"></i> Recommendations
+        <div class="tips-section">
+            <h4 class="section-title">
+                <i class="fas fa-lightbulb"></i>
+                How to Improve
             </h4>
-            <div class="recommendation-list">
-                ${result.tips.map(tip => `
-                    <div class="recommendation-item">
-                        <div class="recommendation-icon">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <div class="recommendation-text">${tip}</div>
-                    </div>
-                `).join('')}
-            </div>
+            <ul class="tips-list">
+                ${data.tips.map(tip => `<li class="tip-item">${tip}</li>`).join('')}
+            </ul>
         </div>
         
-        <div class="products">
-            <h4 class="products-title">
-                <i class="fas fa-shopping-cart"></i> Recommended Products
+        <div class="products-section">
+            <h4 class="section-title">
+                <i class="fas fa-shopping-cart"></i>
+                Recommended Products
             </h4>
-            <div class="product-grid">
-                ${result.products.map(product => `
-                    <a href="${product.link}" class="product-card" target="_blank" rel="noopener">
-                        <div class="product-image">
-                            ${product.image ? `<img src="${product.image}" alt="${product.name}" />` : `<i class="fas ${iconClass}"></i>`}
-                        </div>
+            <div class="products-grid">
+                ${data.products.map(product => `
+                    <div class="product-card">
                         <div class="product-name">${product.name}</div>
-                        <div class="product-price">${product.price}</div>
-                    </a>
+                        <div class="product-description">${product.description}</div>
+                        <div class="product-impact">${product.impact}</div>
+                    </div>
                 `).join('')}
             </div>
         </div>
     `;
     
     return div;
+}
+
+function resetQuiz() {
+    // Reset all state
+    questions = [];
+    currentQuestionIndex = 0;
+    userAnswers = [];
+    currentResults = null;
+    currentQuestionContext = null;
+    
+    // Clear chat session
+    chatSessionId = 'session_' + Date.now();
+    const chatMessages = document.getElementById('chatMessages');
+    
+    // Clear all messages except the welcome message
+    chatMessages.innerHTML = `
+        <div class="chat-message bot-message">
+            <div class="message-avatar">
+                <i class="fas fa-leaf"></i>
+            </div>
+            <div class="message-content">
+                <p>Hey! I'm EcoCoach 🌱 Your sustainability sidekick!</p>
+                <p>I can help you:</p>
+                <ul>
+                    <li>💡 Decode quiz questions as you go</li>
+                    <li>📊 Make sense of your results</li>
+                    <li>🎯 Find your easiest climate wins</li>
+                    <li>🌍 Answer any eco questions</li>
+                </ul>
+                <p>What's on your mind?</p>
+            </div>
+        </div>
+    `;
+    
+    // Show suggestions again
+    const suggestionsDiv = document.getElementById('chatSuggestions');
+    if (suggestionsDiv) {
+        suggestionsDiv.style.display = 'flex';
+    }
+    
+    // Go back to start screen
+    showScreen('start-screen');
+    
+    console.log('Quiz reset complete');
 }
 
 // ===================================
