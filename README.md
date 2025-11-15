@@ -129,9 +129,11 @@ If the chatbot isn't working for you, it's because you need to set up the API ke
 
 **Quick fix:**
 ```bash
-export ANTHROPIC_API_KEY='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'
+export ANTHROPIC_API_KEY='your-api-key-here'
 python app.py
 ```
+
+Get your API key from: https://console.anthropic.com/settings/keys
 
 ## 🐛 Troubleshooting
 

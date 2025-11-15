@@ -110,7 +110,9 @@ function displayQuestion() {
         total: questions.length,
         category: question.category,
         question: question.question,
-        options: question.options.map(opt => opt.text)
+        type: question.type || 'multiple_choice',
+        options: question.options ? question.options.map(opt => opt.text) : 
+                 question.type === 'slider' ? [`Range: ${question.min}-${question.max} ${question.unit}`] : []
     };
     
     console.log('✅ Question context updated:', currentQuestionContext);
@@ -148,20 +150,96 @@ function displayQuestion() {
     const optionsContainer = document.getElementById('options-container');
     optionsContainer.innerHTML = '';
     
-    question.options.forEach((option, index) => {
-        const button = document.createElement('button');
-        button.className = 'option-btn';
-        button.textContent = option.text;
-        
-        // Check if this was previously selected
-        const previousAnswer = userAnswers[currentQuestionIndex];
-        if (previousAnswer && previousAnswer.optionIndex === index) {
-            button.classList.add('selected');
-        }
-        
-        button.addEventListener('click', () => selectAnswer(index, option, question));
-        optionsContainer.appendChild(button);
+    // Check if this is a slider question
+    if (question.type === 'slider') {
+        createSliderQuestion(question, optionsContainer);
+    } else {
+        // Multiple choice question
+        question.options.forEach((option, index) => {
+            const button = document.createElement('button');
+            button.className = 'option-btn';
+            button.textContent = option.text;
+            
+            // Check if this was previously selected
+            const previousAnswer = userAnswers[currentQuestionIndex];
+            if (previousAnswer && previousAnswer.optionIndex === index) {
+                button.classList.add('selected');
+            }
+            
+            button.addEventListener('click', () => selectAnswer(index, option, question));
+            optionsContainer.appendChild(button);
+        });
+    }
+}
+
+function createSliderQuestion(question, container) {
+    const previousAnswer = userAnswers[currentQuestionIndex];
+    const defaultValue = (previousAnswer && previousAnswer.sliderValue !== undefined) ? 
+                         previousAnswer.sliderValue : 
+                         Math.floor((question.min + question.max) / 2);
+    
+    // Create slider container
+    const sliderDiv = document.createElement('div');
+    sliderDiv.className = 'slider-container';
+    
+    // Create value display
+    const valueDisplay = document.createElement('div');
+    valueDisplay.className = 'slider-value-display';
+    valueDisplay.innerHTML = `
+        <span class="slider-value" id="slider-value">${defaultValue}</span>
+        <span class="slider-unit">${question.unit}</span>
+    `;
+    
+    // Create slider input
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = question.min;
+    slider.max = question.max;
+    slider.value = defaultValue;
+    slider.className = 'slider-input';
+    slider.id = 'question-slider';
+    
+    // Create min/max labels
+    const labels = document.createElement('div');
+    labels.className = 'slider-labels';
+    labels.innerHTML = `
+        <span>${question.min} ${question.unit}</span>
+        <span>${question.max} ${question.unit}</span>
+    `;
+    
+    // Create confirm button
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn btn-primary slider-confirm-btn';
+    confirmBtn.textContent = 'Continue';
+    confirmBtn.innerHTML = '<span>Continue</span><i class="fas fa-arrow-right"></i>';
+    
+    // Update value display on slider change
+    slider.addEventListener('input', (e) => {
+        document.getElementById('slider-value').textContent = e.target.value;
     });
+    
+    // Handle confirm button
+    confirmBtn.addEventListener('click', () => {
+        const sliderValue = parseInt(slider.value);
+        const co2 = Math.round(sliderValue * question.co2_per_unit);
+        
+        selectSliderAnswer(sliderValue, co2, question);
+    });
+    
+    // Also allow Enter key to continue
+    slider.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            confirmBtn.click();
+        }
+    });
+    
+    // Assemble the slider
+    sliderDiv.appendChild(valueDisplay);
+    sliderDiv.appendChild(slider);
+    sliderDiv.appendChild(labels);
+    sliderDiv.appendChild(confirmBtn);
+    
+    container.appendChild(sliderDiv);
 }
 
 function selectAnswer(index, option, question) {
@@ -210,6 +288,44 @@ function selectAnswer(index, option, question) {
     }, 400);
 }
 
+function selectSliderAnswer(sliderValue, co2, question) {
+    // Check if this is a change to a previous answer
+    const previousAnswer = userAnswers[currentQuestionIndex];
+    const isChangingAnswer = previousAnswer && previousAnswer.sliderValue !== sliderValue;
+    
+    // Store answer with slider value
+    userAnswers[currentQuestionIndex] = {
+        questionId: question.id,
+        questionNumber: currentQuestionIndex + 1,
+        questionText: question.question,
+        category: question.category,
+        type: 'slider',
+        sliderValue: sliderValue,
+        selectedOption: `${sliderValue} ${question.unit}`,
+        co2: co2
+    };
+    
+    if (isChangingAnswer) {
+        console.log(`🔄 Changed slider answer for Question ${currentQuestionIndex + 1}:`, {
+            from: `${previousAnswer.sliderValue} ${question.unit}`,
+            to: `${sliderValue} ${question.unit}`
+        });
+    } else {
+        console.log(`✅ Stored slider answer for Question ${currentQuestionIndex + 1}:`, userAnswers[currentQuestionIndex]);
+    }
+    console.log(`Total answers stored so far: ${userAnswers.filter(a => a != null).length}`);
+    
+    // Advance to next question after a short delay
+    setTimeout(() => {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < questions.length) {
+            displayQuestion();
+        } else {
+            finishQuiz();
+        }
+    }, 300);
+}
+
 function goToPreviousQuestion() {
     if (currentQuestionIndex > 0) {
         currentQuestionIndex--;
@@ -235,11 +351,16 @@ async function finishQuiz() {
         };
         
         // Convert array to object keyed by questionId
+        // Include ALL answer data for ML calculator
         validAnswers.forEach(answer => {
             payload.answers[answer.questionId] = {
                 category: answer.category,
-                co2: answer.co2,
-                text: answer.selectedOption
+                questionText: answer.questionText,
+                questionNumber: answer.questionNumber,
+                type: answer.type || 'multiple_choice',
+                selectedOption: answer.selectedOption,
+                sliderValue: answer.sliderValue,
+                co2: answer.co2
             };
         });
         

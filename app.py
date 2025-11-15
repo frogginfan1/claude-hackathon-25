@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, session
 import random
 import os
 from anthropic import Anthropic
+from ml_calculator import calculate_emission, get_comparison_data
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -14,133 +15,132 @@ anthropic_client = Anthropic(
 # Store conversation history per session
 conversation_history = {}
 
-# Quiz questions database
+# Quiz questions database (based on Carbon Emissions dataset)
 QUESTIONS = {
     "Home": [
         {
             "id": 1,
-            "question": "What is your average monthly electricity consumption?",
+            "question": "What is your primary heating energy source?",
+            "type": "multiple_choice",
             "options": [
-                {"text": "Less than 200 kWh", "co2": 80},
-                {"text": "200-400 kWh", "co2": 200},
-                {"text": "400-600 kWh", "co2": 320},
-                {"text": "More than 600 kWh", "co2": 480}
+                {"text": "Electricity", "co2": 200},
+                {"text": "Natural gas", "co2": 350},
+                {"text": "Wood", "co2": 450},
+                {"text": "Coal", "co2": 650}
             ]
         },
         {
             "id": 2,
-            "question": "What type of heating do you primarily use?",
-            "options": [
-                {"text": "Solar/Geothermal", "co2": 50},
-                {"text": "Electric heat pump", "co2": 150},
-                {"text": "Natural gas", "co2": 400},
-                {"text": "Oil/Coal", "co2": 600}
-            ]
+            "question": "How many hours per day do you use TV/Computer?",
+            "type": "slider",
+            "min": 0,
+            "max": 24,
+            "unit": "hours",
+            "co2_per_unit": 8  # kg CO2 per hour per year
         },
         {
             "id": 3,
-            "question": "How well insulated is your home?",
-            "options": [
-                {"text": "Excellent (New/Renovated)", "co2": 100},
-                {"text": "Good", "co2": 200},
-                {"text": "Average", "co2": 350},
-                {"text": "Poor (Drafty, old windows)", "co2": 500}
-            ]
+            "question": "How many hours per day do you use the internet?",
+            "type": "slider",
+            "min": 0,
+            "max": 24,
+            "unit": "hours",
+            "co2_per_unit": 5  # kg CO2 per hour per year
         }
     ],
     "Mobility": [
         {
             "id": 4,
-            "question": "How many kilometers do you travel per week?",
+            "question": "What is your primary mode of transportation?",
+            "type": "multiple_choice",
             "options": [
-                {"text": "Less than 50 km", "co2": 100},
-                {"text": "50-150 km", "co2": 250},
-                {"text": "150-300 km", "co2": 450},
-                {"text": "More than 300 km", "co2": 700}
+                {"text": "Walk/Bicycle", "co2": 50},
+                {"text": "Public transport", "co2": 250},
+                {"text": "Private vehicle", "co2": 550}
             ]
         },
         {
             "id": 5,
-            "question": "What is your primary mode of transportation?",
-            "options": [
-                {"text": "Walking/Cycling", "co2": 0},
-                {"text": "Public transport", "co2": 150},
-                {"text": "Electric vehicle", "co2": 200},
-                {"text": "Gasoline/Diesel car", "co2": 600}
-            ]
+            "question": "How many kilometers do you travel by vehicle per month?",
+            "type": "slider",
+            "min": 0,
+            "max": 10000,
+            "unit": "km",
+            "co2_per_unit": 0.15  # kg CO2 per km per year
         },
         {
             "id": 6,
-            "question": "How many flights do you take per year?",
+            "question": "How often do you travel by air?",
+            "type": "multiple_choice",
             "options": [
-                {"text": "None", "co2": 0},
-                {"text": "1-2 short flights", "co2": 300},
-                {"text": "3-5 flights", "co2": 800},
-                {"text": "More than 5 or long-haul", "co2": 1500}
+                {"text": "Never", "co2": 0},
+                {"text": "Rarely", "co2": 200},
+                {"text": "Frequently", "co2": 600},
+                {"text": "Very frequently", "co2": 1200}
             ]
         }
     ],
     "Food": [
         {
             "id": 7,
-            "question": "How often do you eat red meat (beef, lamb)?",
+            "question": "What best describes your diet?",
+            "type": "multiple_choice",
             "options": [
-                {"text": "Never (Vegetarian/Vegan)", "co2": 100},
-                {"text": "Once a week", "co2": 300},
-                {"text": "3-4 times a week", "co2": 600},
-                {"text": "Daily", "co2": 1000}
+                {"text": "Vegan", "co2": 150},
+                {"text": "Vegetarian", "co2": 250},
+                {"text": "Pescatarian", "co2": 350},
+                {"text": "Omnivore", "co2": 600}
             ]
         },
         {
             "id": 8,
-            "question": "What percentage of your food is locally sourced?",
-            "options": [
-                {"text": "More than 75%", "co2": 100},
-                {"text": "50-75%", "co2": 200},
-                {"text": "25-50%", "co2": 350},
-                {"text": "Less than 25%", "co2": 500}
-            ]
+            "question": "What is your monthly grocery bill (in dollars)?",
+            "type": "slider",
+            "min": 50,
+            "max": 300,
+            "unit": "$",
+            "co2_per_unit": 3  # kg CO2 per dollar per year
         },
         {
             "id": 9,
-            "question": "How much food do you waste per week?",
-            "options": [
-                {"text": "Almost none (compost/reuse)", "co2": 50},
-                {"text": "Small amount", "co2": 150},
-                {"text": "Moderate amount", "co2": 300},
-                {"text": "Significant amount", "co2": 500}
-            ]
+            "question": "How many waste bags do you produce per week?",
+            "type": "slider",
+            "min": 1,
+            "max": 7,
+            "unit": "bags",
+            "co2_per_unit": 25  # kg CO2 per bag per year
         }
     ],
     "Consumption": [
         {
             "id": 10,
-            "question": "How often do you buy new clothes?",
-            "options": [
-                {"text": "Rarely (2nd hand only)", "co2": 50},
-                {"text": "Few times a year", "co2": 150},
-                {"text": "Monthly", "co2": 350},
-                {"text": "Weekly", "co2": 600}
-            ]
+            "question": "How many new clothes do you buy per month?",
+            "type": "slider",
+            "min": 0,
+            "max": 50,
+            "unit": "items",
+            "co2_per_unit": 8  # kg CO2 per item per year
         },
         {
             "id": 11,
-            "question": "How often do you buy new electronics/gadgets?",
+            "question": "What size waste bag do you typically use?",
+            "type": "multiple_choice",
             "options": [
-                {"text": "Only when necessary", "co2": 100},
-                {"text": "Every 3-4 years", "co2": 200},
-                {"text": "Every 1-2 years", "co2": 400},
-                {"text": "Latest models always", "co2": 700}
+                {"text": "Small", "co2": 100},
+                {"text": "Medium", "co2": 200},
+                {"text": "Large", "co2": 350},
+                {"text": "Extra large", "co2": 500}
             ]
         },
         {
             "id": 12,
-            "question": "How do you handle packaging and recycling?",
+            "question": "How often do you shower?",
+            "type": "multiple_choice",
             "options": [
-                {"text": "Zero-waste focused, comprehensive recycling", "co2": 50},
-                {"text": "Regular recycling", "co2": 150},
-                {"text": "Occasional recycling", "co2": 300},
-                {"text": "Rarely recycle", "co2": 500}
+                {"text": "Less frequently (every 2-3 days)", "co2": 80},
+                {"text": "Daily", "co2": 150},
+                {"text": "More frequently (1.5x/day)", "co2": 220},
+                {"text": "Twice a day", "co2": 300}
             ]
         }
     ]
@@ -314,68 +314,77 @@ def api_get_questions():
 
 @app.route('/api/calculate', methods=['POST'])
 def api_calculate():
-    """Calculate CO2 emissions from answers for bubbly UI"""
+    """
+    Calculate CO2 emissions using ML-informed calculator
+    Based on CatBoost model trained on 10,000 real data points (R² = 0.9907)
+    """
     data = request.json
-    answers = data.get('answers', {})
+    answers_dict = data.get('answers', {})
     
-    # Initialize results
-    results = {
-        "Home": {"co2": 0, "percentage": 0},
-        "Mobility": {"co2": 0, "percentage": 0},
-        "Food": {"co2": 0, "percentage": 0},
-        "Consumption": {"co2": 0, "percentage": 0}
-    }
+    # Convert dict to list format that ml_calculator expects
+    answers_list = list(answers_dict.values())
     
-    # Calculate CO2 for each category
-    for question_id, answer in answers.items():
-        # Find the question
-        category = answer.get('category')
-        co2_value = answer.get('co2', 0)
-        
-        if category in results:
-            results[category]["co2"] += co2_value
+    # Use ML-informed calculator
+    ml_results = calculate_emission(answers_list)
+    comparison_data = get_comparison_data()
     
-    # Annualize the results (multiply by 52 weeks, divide by 3 questions to get average)
+    # Get emissions by category from ML calculator
+    category_emissions = ml_results['emissions']
+    total_emission = ml_results['total']
+    
+    # Dataset averages (from 10,000 data points)
+    # These represent typical emissions for each category
     AVERAGES = {
-        "Home": 2000,
-        "Mobility": 2500,
-        "Food": 2000,
-        "Consumption": 1500
+        "Home": 680,        # Heating (400) + TV (180) + Internet (100)
+        "Mobility": 850,    # Transport (600) + Distance (150) + Flight (100)  
+        "Food": 570,        # Diet (600) + Grocery (160) + Waste (160)
+        "Consumption": 370  # Clothes (144) + Bag Size (280) + Shower (220)
     }
     
-    for category in results:
-        annual_co2 = results[category]["co2"] * (52 / 3)
-        results[category]["co2_annual"] = round(annual_co2, 2)
-        results[category]["average"] = AVERAGES[category]
-        results[category]["percentage"] = round((annual_co2 / AVERAGES[category]) * 100, 1)
-        results[category]["difference"] = round(annual_co2 - AVERAGES[category], 2)
+    # Build results structure
+    results = {}
+    for category in ["Home", "Mobility", "Food", "Consumption"]:
+        emissions = category_emissions.get(category, 0)
+        average = AVERAGES[category]
+        difference = emissions - average
+        
+        results[category] = {
+            "co2_annual": round(emissions, 2),
+            "average": average,
+            "percentage": round((emissions / average) * 100, 1) if average > 0 else 100,
+            "difference": round(difference, 2),
+            "tips": TIPS[category][:3],
+            "products": PRODUCTS[category]
+        }
     
-    # Sort categories by how far they are from average (worst first)
+    # Sort categories by absolute difference (worst first)
     sorted_categories = sorted(
         results.items(),
         key=lambda x: abs(x[1]["difference"]),
         reverse=True
     )
     
-    # Add tips and products
-    for category, data in results.items():
-        # Prioritize tips based on how far from average
-        data["tips"] = TIPS[category][:3]
-        data["products"] = PRODUCTS[category]
-    
-    # Calculate total
-    total_co2 = sum(r["co2_annual"] for r in results.values())
+    # Calculate total average
     total_average = sum(AVERAGES.values())
     
     response = {
         "categories": results,
         "total": {
-            "co2": round(total_co2, 2),
+            "co2": round(total_emission, 2),
             "average": total_average,
-            "percentage": round((total_co2 / total_average) * 100, 1)
+            "percentage": round((total_emission / total_average) * 100, 1)
         },
-        "priority_order": [cat for cat, _ in sorted_categories]
+        "priority_order": [cat for cat, _ in sorted_categories],
+        "ml_info": {
+            "model_accuracy": ml_results['model_accuracy'],
+            "dataset_mean": comparison_data['dataset_mean'],
+            "features_used": len(ml_results['features_used'])
+        }
     }
+    
+    print(f"✅ ML Calculator: Total CO2 = {total_emission} kg/year")
+    print(f"   Dataset mean: {comparison_data['dataset_mean']} kg/year")
+    print(f"   Features used: {ml_results['features_used']}")
     
     return jsonify(response)
 

@@ -26,12 +26,7 @@ pip install -r requirements.txt
 
 You need an Anthropic API key for the chatbot to work. 
 
-**Option A: Use the shared key (for hackathon/demo)**
-```bash
-export ANTHROPIC_API_KEY='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'
-```
-
-**Option B: Get your own key**
+**Option A: Get your own API key (Recommended)**
 1. Go to https://console.anthropic.com/settings/keys
 2. Create a new API key
 3. Set it as an environment variable:
@@ -52,7 +47,7 @@ Then open your browser to: **http://localhost:5001**
 For convenience, you can run everything in one line:
 
 ```bash
-ANTHROPIC_API_KEY='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' python app.py
+ANTHROPIC_API_KEY='your-api-key-here' python app.py
 ```
 
 ## ⚠️ Troubleshooting
