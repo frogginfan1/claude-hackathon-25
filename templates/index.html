@@ -140,6 +140,67 @@
         </div>
     </div>
 
+    <!-- Chatbot Widget -->
+    <div id="chatbot" class="chatbot-widget">
+        <div class="chatbot-header">
+            <div class="chatbot-header-content">
+                <div class="chatbot-avatar">
+                    <i class="fas fa-leaf"></i>
+                </div>
+                <div class="chatbot-title">
+                    <h3>EcoCoach</h3>
+                    <p class="chatbot-status">Your Sustainability Assistant</p>
+                </div>
+            </div>
+            <button id="closeChatBtn" class="close-chat-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="chatbot-messages" id="chatMessages">
+            <div class="chat-message bot-message">
+                <div class="message-avatar">
+                    <i class="fas fa-leaf"></i>
+                </div>
+                <div class="message-content">
+                    <p>Hi! I'm EcoCoach 🌱 I'm here to help you with:</p>
+                    <ul>
+                        <li>Understanding your carbon footprint results</li>
+                        <li>Answering quiz questions</li>
+                        <li>General sustainability advice</li>
+                    </ul>
+                    <p>What would you like to know?</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chatbot-input-area">
+            <div class="chat-suggestions" id="chatSuggestions">
+                <button class="suggestion-btn" data-message="Why is my carbon footprint high?">Why is my footprint high?</button>
+                <button class="suggestion-btn" data-message="What's the easiest change I can make?">Easiest change?</button>
+                <button class="suggestion-btn" data-message="How does composting help?">About composting</button>
+            </div>
+            <div class="chatbot-input-container">
+                <input 
+                    type="text" 
+                    id="chatInput" 
+                    class="chat-input" 
+                    placeholder="Ask me anything about sustainability..."
+                    autocomplete="off"
+                />
+                <button id="sendChatBtn" class="send-chat-btn">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Chat Button -->
+    <button id="chatToggleBtn" class="chat-toggle-btn">
+        <i class="fas fa-comments"></i>
+        <span class="chat-badge">Ask EcoCoach!</span>
+    </button>
+
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>

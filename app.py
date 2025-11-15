@@ -1,7 +1,18 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import random
+import os
+from anthropic import Anthropic
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Initialize Claude API client
+anthropic_client = Anthropic(
+    api_key=os.environ.get('ANTHROPIC_API_KEY', '')
+)
+
+# Store conversation history per session
+conversation_history = {}
 
 # Quiz questions database
 QUESTIONS = {
@@ -356,6 +367,102 @@ def calculate_results():
         "total_difference": total_emissions - total_average
     })
 
+@app.route('/chat', methods=['POST'])
+def chat():
+    """Handle chatbot interactions using Claude API"""
+    data = request.json
+    user_message = data.get('message', '')
+    user_results = data.get('results', None)
+    session_id = data.get('session_id', 'default')
+    
+    # Initialize conversation history for this session if not exists
+    if session_id not in conversation_history:
+        conversation_history[session_id] = []
+    
+    # Build system prompt based on context
+    system_prompt = """You are EcoCoach, a friendly and knowledgeable sustainability assistant for the EcoTrace carbon footprint quiz application. Your role is to:
+
+1. **Help users understand their carbon footprint results** - Explain what their emissions mean, why certain categories are high/low, and provide personalized advice
+2. **Answer quiz questions** - Help users understand what each quiz question means, provide context, and help them make informed choices
+3. **Provide general sustainability advice** - Answer any questions about climate change, sustainability, eco-friendly living, carbon emissions, etc.
+4. **Be encouraging and positive** - Focus on achievable actions, celebrate small wins, and motivate users to make sustainable choices
+
+Guidelines:
+- Keep responses concise (2-4 sentences for simple questions, longer for complex ones)
+- Use relatable examples and practical advice
+- Cite specific numbers when discussing carbon emissions
+- Be empathetic and non-judgmental about current habits
+- Emphasize that every small action matters
+- Use emojis sparingly for friendliness 🌱
+
+If the user has quiz results available, reference their specific data when relevant."""
+
+    # Add user results context if available
+    if user_results:
+        results_context = f"\n\nUser's Current Results:\n"
+        results_context += f"- Total Emissions: {user_results.get('total_emissions', 'N/A')} kg CO₂/year\n"
+        results_context += f"- Average Emissions: {user_results.get('total_average', 'N/A')} kg CO₂/year\n"
+        if 'results' in user_results:
+            results_context += "\nBreakdown by Category:\n"
+            for result in user_results['results']:
+                results_context += f"- {result['category']}: {result['emissions']} kg CO₂/year "
+                results_context += f"({'+' if result['difference'] > 0 else ''}{result['difference']} kg vs average)\n"
+        system_prompt += results_context
+    
+    # Add user message to history
+    conversation_history[session_id].append({
+        "role": "user",
+        "content": user_message
+    })
+    
+    try:
+        # Call Claude API
+        response = anthropic_client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=conversation_history[session_id]
+        )
+        
+        # Extract assistant's response
+        assistant_message = response.content[0].text
+        
+        # Add assistant response to history
+        conversation_history[session_id].append({
+            "role": "assistant",
+            "content": assistant_message
+        })
+        
+        # Keep only last 10 messages to prevent context overflow
+        if len(conversation_history[session_id]) > 10:
+            conversation_history[session_id] = conversation_history[session_id][-10:]
+        
+        return jsonify({
+            "success": True,
+            "message": assistant_message,
+            "session_id": session_id
+        })
+    
+    except Exception as e:
+        print(f"Error calling Claude API: {e}")
+        # Fallback response if API fails
+        return jsonify({
+            "success": False,
+            "message": "I'm having trouble connecting right now. Please make sure your ANTHROPIC_API_KEY is set correctly. In the meantime, feel free to explore your results and try the quiz again!",
+            "error": str(e)
+        })
+
+@app.route('/clear-chat', methods=['POST'])
+def clear_chat():
+    """Clear conversation history for a session"""
+    data = request.json
+    session_id = data.get('session_id', 'default')
+    
+    if session_id in conversation_history:
+        del conversation_history[session_id]
+    
+    return jsonify({"success": True})
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
 
