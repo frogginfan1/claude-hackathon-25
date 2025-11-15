@@ -20,7 +20,7 @@ if not api_key:
     print("⚠️  Please create a .env file with your API key")
     print("⚠️  The chatbot will not work without a valid API key")
 else:
-    print(f"✅ API Key loaded: {api_key[:20]}...{api_key[-4:]}")
+    print("✅ Anthropic API Key loaded successfully")
 
 # Initialize Claude API client
 anthropic_client = Anthropic(api_key=api_key)
