@@ -47,7 +47,6 @@ You need an Anthropic API key for the chatbot to work. **Everyone needs their ow
 3. **Add your API key to the `.env` file:**
    ```
    ANTHROPIC_API_KEY=sk-ant-api03-YOUR-KEY-HERE
-   FLASK_SECRET_KEY=your-random-secret-key-here
    ```
    
    Replace `sk-ant-api03-YOUR-KEY-HERE` with your actual API key from step 1.

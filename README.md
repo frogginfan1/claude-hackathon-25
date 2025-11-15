@@ -51,13 +51,11 @@ A beautiful, interactive sustainability quiz that calculates your carbon footpri
    
    # Add your API key (get one from https://console.anthropic.com/settings/keys)
    echo "ANTHROPIC_API_KEY=your-api-key-here" >> .env
-   echo "FLASK_SECRET_KEY=your-random-secret-key" >> .env
    ```
    
    Or manually create a `.env` file with:
    ```
    ANTHROPIC_API_KEY=sk-ant-api03-YOUR-KEY-HERE
-   FLASK_SECRET_KEY=your-random-secret-key-here
    ```
    
    **For team members:** See [SETUP.md](SETUP.md) for detailed setup instructions. Everyone needs their own API key from https://console.anthropic.com/settings/keys
