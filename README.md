@@ -6,6 +6,9 @@ A beautiful, interactive sustainability quiz that calculates your carbon footpri
 ![AI Powered](https://img.shields.io/badge/AI-Claude_Sonnet_4-purple)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+## 🎥 Quick Demo
+https://youtu.be/W8lH7V5S9Gw
+
 ## ✨ Features
 
 - 🎨 **Beautiful Bubbly UI** - Clean, modern design with pastel green aesthetics
