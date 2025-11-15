@@ -37,6 +37,9 @@ function initializeApp() {
     // Retake quiz button
     document.getElementById('retake-btn').addEventListener('click', resetQuiz);
     
+    // Previous question button
+    document.getElementById('prev-btn').addEventListener('click', goToPreviousQuestion);
+    
     // Show start screen
     showScreen('start-screen');
 }
@@ -133,6 +136,14 @@ function displayQuestion() {
     // Update question text
     document.getElementById('question-text').textContent = question.question;
     
+    // Show/hide previous button
+    const prevBtn = document.getElementById('prev-btn');
+    if (currentQuestionIndex === 0) {
+        prevBtn.style.display = 'none';
+    } else {
+        prevBtn.style.display = 'inline-flex';
+    }
+    
     // Display answers (using options-container for bubbly UI)
     const optionsContainer = document.getElementById('options-container');
     optionsContainer.innerHTML = '';
@@ -163,6 +174,10 @@ function selectAnswer(index, option, question) {
         }
     });
     
+    // Check if this is a change to a previous answer
+    const previousAnswer = userAnswers[currentQuestionIndex];
+    const isChangingAnswer = previousAnswer && previousAnswer.optionIndex !== index;
+    
     // Store answer with question number and text for chatbot context
     userAnswers[currentQuestionIndex] = {
         questionId: question.id,
@@ -174,7 +189,14 @@ function selectAnswer(index, option, question) {
         co2: option.co2
     };
     
-    console.log(`✅ Stored answer for Question ${currentQuestionIndex + 1}:`, userAnswers[currentQuestionIndex]);
+    if (isChangingAnswer) {
+        console.log(`🔄 Changed answer for Question ${currentQuestionIndex + 1}:`, {
+            from: previousAnswer.selectedOption,
+            to: option.text
+        });
+    } else {
+        console.log(`✅ Stored answer for Question ${currentQuestionIndex + 1}:`, userAnswers[currentQuestionIndex]);
+    }
     console.log(`Total answers stored so far: ${userAnswers.filter(a => a != null).length}`);
     
     // Auto-advance to next question after a short delay
@@ -186,6 +208,14 @@ function selectAnswer(index, option, question) {
             finishQuiz();
         }
     }, 400);
+}
+
+function goToPreviousQuestion() {
+    if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        console.log(`⬅️ Going back to Question ${currentQuestionIndex + 1}`);
+        displayQuestion();
+    }
 }
 
 async function finishQuiz() {

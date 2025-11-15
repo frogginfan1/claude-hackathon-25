@@ -355,6 +355,24 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: var(--shadow-md);
 }
 
+/* Quiz Navigation */
+.quiz-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-xl);
+    gap: var(--space-md);
+}
+
+.nav-spacer {
+    flex: 1;
+}
+
+.btn-nav {
+    min-width: 140px;
+    font-size: var(--text-sm);
+}
+
 /* Results Screen */
 #results-screen {
     background: var(--color-cream);
