@@ -33,10 +33,10 @@ You need an Anthropic API key for the chatbot to work. **Everyone needs their ow
    - Sign up or log in
    - Create a new API key (free tier available)
 
-2. **Create a `.env` file in the project root:**
+2. **Create your `.env` file from the example:**
    ```bash
-   # Create the file
-   touch .env
+   # Copy the example file
+   cp .env.example .env
    
    # Open it in your editor
    nano .env
@@ -45,11 +45,11 @@ You need an Anthropic API key for the chatbot to work. **Everyone needs their ow
    ```
 
 3. **Add your API key to the `.env` file:**
-   ```
-   ANTHROPIC_API_KEY=sk-ant-api03-YOUR-KEY-HERE
-   ```
    
-   Replace `sk-ant-api03-YOUR-KEY-HERE` with your actual API key from step 1.
+   Replace `your-api-key-here` with your actual API key from step 1:
+   ```
+   ANTHROPIC_API_KEY=sk-ant-api03-YOUR-ACTUAL-KEY-HERE
+   ```
 
 4. **Save the file** (Ctrl+O, Enter, Ctrl+X in nano)
 

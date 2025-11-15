@@ -44,21 +44,24 @@ A beautiful, interactive sustainability quiz that calculates your carbon footpri
 
 4. **Set up API key** ⚠️ **IMPORTANT**
    
-   The chatbot requires an Anthropic API key. Create a `.env` file:
+   The chatbot requires an Anthropic API key. **Everyone needs their own key!**
+   
    ```bash
-   # Create .env file in the project root
-   touch .env
+   # Copy the example file
+   cp .env.example .env
    
-   # Add your API key (get one from https://console.anthropic.com/settings/keys)
-   echo "ANTHROPIC_API_KEY=your-api-key-here" >> .env
+   # Edit .env and add your API key (get one from https://console.anthropic.com/settings/keys)
+   nano .env
    ```
    
-   Or manually create a `.env` file with:
+   Your `.env` file should look like:
    ```
-   ANTHROPIC_API_KEY=sk-ant-api03-YOUR-KEY-HERE
+   ANTHROPIC_API_KEY=sk-ant-api03-YOUR-ACTUAL-KEY-HERE
    ```
    
-   **For team members:** See [SETUP.md](SETUP.md) for detailed setup instructions. Everyone needs their own API key from https://console.anthropic.com/settings/keys
+   ⚠️ **Note:** The `.env` file is in `.gitignore` and will NOT be pushed to GitHub. This is intentional for security!
+   
+   **For team members:** See [SETUP.md](SETUP.md) for detailed setup instructions.
 
 5. **Run the application**
    ```bash

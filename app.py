@@ -11,10 +11,19 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
 
+# Get API key from environment
+api_key = os.getenv('ANTHROPIC_API_KEY', '')
+
+# Validate API key exists
+if not api_key:
+    print("⚠️  WARNING: No ANTHROPIC_API_KEY found in environment!")
+    print("⚠️  Please create a .env file with your API key")
+    print("⚠️  The chatbot will not work without a valid API key")
+else:
+    print(f"✅ API Key loaded: {api_key[:20]}...{api_key[-4:]}")
+
 # Initialize Claude API client
-anthropic_client = Anthropic(
-    api_key=os.getenv('ANTHROPIC_API_KEY', '')
-)
+anthropic_client = Anthropic(api_key=api_key)
 
 # Store conversation history per session
 conversation_history = {}
