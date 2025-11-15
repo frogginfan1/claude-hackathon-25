@@ -374,40 +374,179 @@ def chat():
     user_message = data.get('message', '')
     user_results = data.get('results', None)
     session_id = data.get('session_id', 'default')
+    screen_context = data.get('screen_context', 'unknown')
+    current_question = data.get('current_question', None)
+    user_answers = data.get('user_answers', None)
+    
+    # Debug logging
+    print(f"\n=== CHAT REQUEST ===")
+    print(f"Screen Context: '{screen_context}'")
+    print(f"Current Question Type: {type(current_question)}")
+    print(f"Current Question Value: {current_question}")
+    print(f"Current Question Bool: {bool(current_question)}")
+    if current_question:
+        print(f"Question Details: number={current_question.get('number')}, category={current_question.get('category')}")
+    print(f"User Message: {user_message}")
+    print(f"Full Request Data: {data}")
+    print(f"===================\n")
     
     # Initialize conversation history for this session if not exists
     if session_id not in conversation_history:
         conversation_history[session_id] = []
     
-    # Build system prompt based on context
-    system_prompt = """You are EcoCoach, a friendly and knowledgeable sustainability assistant for the EcoTrace carbon footprint quiz application. Your role is to:
+    # Build system prompt based on context - Make it engaging and concise!
+    system_prompt = """You are EcoCoach 🌱 - a witty, enthusiastic sustainability expert who makes eco-living feel exciting, not overwhelming!
 
-1. **Help users understand their carbon footprint results** - Explain what their emissions mean, why certain categories are high/low, and provide personalized advice
-2. **Answer quiz questions** - Help users understand what each quiz question means, provide context, and help them make informed choices
-3. **Provide general sustainability advice** - Answer any questions about climate change, sustainability, eco-friendly living, carbon emissions, etc.
-4. **Be encouraging and positive** - Focus on achievable actions, celebrate small wins, and motivate users to make sustainable choices
+YOUR PERSONALITY:
+- Conversational & fun (think: helpful friend, not boring textbook)
+- Direct and punchy (2-3 sentences for simple q's, max 5 for complex)
+- Use vivid comparisons ("That's like driving to the moon!" or "Saves enough energy to charge your phone 500 times!")
+- Encouraging but honest - celebrate wins, gently nudge on big impacts
+- Strategic emoji use for emphasis (but don't overdo it)
 
-Guidelines:
-- Keep responses concise (2-4 sentences for simple questions, longer for complex ones)
-- Use relatable examples and practical advice
-- Cite specific numbers when discussing carbon emissions
-- Be empathetic and non-judgmental about current habits
-- Emphasize that every small action matters
-- Use emojis sparingly for friendliness 🌱
+RESPONSE RULES:
+1. **BE CONCISE** - Get to the point fast. No fluff.
+2. **BE SPECIFIC** - Real numbers, real actions, real impact
+3. **BE MEMORABLE** - Use analogies people remember
+4. **BE ACTIONABLE** - Always include a "next step" when relevant
+5. **BE CONTEXTUAL** - Reference what they're looking at RIGHT NOW
 
-If the user has quiz results available, reference their specific data when relevant."""
+CONVERSATION STYLE:
+❌ "Your emissions are higher than average. You should consider making changes."
+✅ "Whoa! You're 500kg above average - that's like an extra round-trip flight to NYC each year. Want to tackle the biggest win first?"
+
+❌ "Composting reduces methane emissions from landfills."
+✅ "Compost turns trash into treasure! Plus it saves ~150kg CO₂/year - that's like planting 7 trees. 🌳"
+"""
+
+    # Add screen-specific context
+    if screen_context == 'start':
+        system_prompt += "\n\n📍 USER IS ON: Landing page (hasn't started quiz yet)\nHelp them understand what the quiz does or answer sustainability basics."
+    
+    elif screen_context == 'quiz':
+        # Check if current_question exists and has data
+        has_question = current_question and isinstance(current_question, dict) and current_question.get('question')
+        
+        if has_question:
+            q_num = current_question.get('number', '?')
+            q_total = current_question.get('total', '?')
+            q_category = current_question.get('category', 'Unknown')
+            q_text = current_question.get('question', 'Unknown')
+            q_options = current_question.get('options', [])
+            
+            system_prompt += f"\n\n🚨 THE USER IS LOOKING AT THIS EXACT QUESTION 🚨"
+            system_prompt += f"\n\n📍 QUESTION {q_num} of {q_total}"
+            system_prompt += f"\n📂 Category: {q_category}"
+            system_prompt += f"\n❓ Question: \"{q_text}\""
+            system_prompt += f"\n\n📋 THEIR 4 OPTIONS:"
+            for i, opt in enumerate(q_options, 1):
+                system_prompt += f"\n   {i}. {opt}"
+            
+            system_prompt += "\n\n🎯 ABSOLUTE RULES:"
+            system_prompt += f"\n1. ONLY reference Question {q_num} - DO NOT make up other question numbers"
+            system_prompt += f"\n2. The question is about: \"{q_text}\" - DO NOT change the topic"
+            system_prompt += f"\n3. ONLY mention these {len(q_options)} options listed above"
+            system_prompt += "\n4. DO NOT ask which question they're on - you already know!"
+            system_prompt += "\n5. Keep it concise: 2-3 sentences max, then list options briefly"
+            system_prompt += "\n6. NO bold (**), NO headings - just plain text with line breaks and bullet points"
+            
+            system_prompt += "\n\n✅ GOOD Response Format:"
+            system_prompt += f"\n\"Perfect! Question {q_num} is about {q_category.lower()}. Here's the impact:\n\n"
+            system_prompt += "\n• Option 1: [1 sentence impact]\n"
+            system_prompt += "\n• Option 2: [1 sentence impact]\n"
+            system_prompt += "\n\nPick what matches your habits!\""
+        else:
+            system_prompt += f"\n\n📍 USER IS ON: Quiz screen BUT question context is missing or invalid"
+            system_prompt += f"\nDEBUG: current_question type = {type(current_question)}, value = {current_question}"
+            system_prompt += "\n\n⚠️ IMPORTANT: Include this debug info in your response:"
+            system_prompt += f"\n'DEBUG: I received current_question as: {current_question} (type: {type(current_question)})'"
+            system_prompt += "\nThen politely ask them to tell you which question they're looking at."
+    
+    elif screen_context == 'results':
+        system_prompt += "\n\n📍 USER IS ON: Results page (quiz is COMPLETE)"
+        system_prompt += "\nThey're viewing their full carbon footprint breakdown with all categories."
+        system_prompt += "\n\n🎯 RULES FOR RESULTS PAGE:"
+        system_prompt += "\n1. DO NOT reference quiz questions - the quiz is finished"
+        system_prompt += "\n2. Focus on their RESULTS and actionable next steps"
+        system_prompt += "\n3. Help them understand their emissions by category"
+        system_prompt += "\n4. Suggest which category to tackle first (highest difference from average)"
+        system_prompt += "\n5. Reference SPECIFIC tips and products shown on their results"
+        system_prompt += "\n6. When asked for advice, mention actual product names and prices from their recommendations"
+        system_prompt += "\n7. When asked WHY their emissions are high, reference their SPECIFIC QUIZ ANSWERS"
+        system_prompt += "\n8. Be encouraging about the changes they can make"
+        system_prompt += "\n\n💡 EXAMPLES:"
+        system_prompt += "\n• 'Try the Smart Thermostat ($249) - it could cut your Home emissions by 10-12%!'"
+        system_prompt += "\n• 'I see you have high Mobility emissions. The tips recommend carpooling or an electric vehicle.'"
+        system_prompt += "\n• 'Your high Mobility score is because you answered \"Gasoline/Diesel car\" for transportation (600 kg).'"
+        system_prompt += "\n• 'Your Food category is great! The compost bin ($75) could make it even better.'"
 
     # Add user results context if available
     if user_results:
-        results_context = f"\n\nUser's Current Results:\n"
-        results_context += f"- Total Emissions: {user_results.get('total_emissions', 'N/A')} kg CO₂/year\n"
-        results_context += f"- Average Emissions: {user_results.get('total_average', 'N/A')} kg CO₂/year\n"
+        results_context = f"\n\n📊 USER'S CARBON FOOTPRINT:\n"
+        results_context += f"Total: {user_results.get('total_emissions', 'N/A')} kg CO₂/year (Avg: {user_results.get('total_average', 'N/A')})\n"
+        diff = user_results.get('total_difference', 0)
+        if diff > 0:
+            results_context += f"⚠️ {diff} kg ABOVE average\n"
+        elif diff < 0:
+            results_context += f"🎉 {abs(diff)} kg BELOW average!\n"
+        
         if 'results' in user_results:
-            results_context += "\nBreakdown by Category:\n"
-            for result in user_results['results']:
-                results_context += f"- {result['category']}: {result['emissions']} kg CO₂/year "
-                results_context += f"({'+' if result['difference'] > 0 else ''}{result['difference']} kg vs average)\n"
+            results_context += "\nCategory Breakdown (sorted by priority):\n"
+            for idx, result in enumerate(user_results['results'], 1):
+                emoji = "🔴" if result['difference'] > 0 else "🟢"
+                results_context += f"\n{idx}. {emoji} {result['category']}: {result['emissions']} kg (avg: {result['average']}, diff: {result['difference']:+d} kg)"
+                
+                # Add tips for this category
+                if 'tips' in result and result['tips']:
+                    results_context += f"\n   Recommended Actions for {result['category']}:"
+                    for tip_idx, tip in enumerate(result['tips'], 1):
+                        results_context += f"\n   • {tip}"
+                
+                # Add products for this category
+                if 'products' in result and result['products']:
+                    results_context += f"\n   Recommended Products for {result['category']}:"
+                    for prod in result['products']:
+                        results_context += f"\n   • {prod['name']} - {prod['price']}: {prod['description']}"
+                
+                results_context += "\n"
+        
+        results_context += "\n💡 You can reference specific tips or products when answering user questions!"
         system_prompt += results_context
+    
+    # Add user's quiz answers if available
+    if user_answers and isinstance(user_answers, list):
+        answers_context = f"\n\n📝 USER'S QUIZ ANSWERS:\n"
+        answers_context += "Here are the specific choices they made:\n"
+        
+        # Group answers by category
+        answers_by_category = {}
+        for answer in user_answers:
+            category = answer.get('category', 'Unknown')
+            if category not in answers_by_category:
+                answers_by_category[category] = []
+            answers_by_category[category].append(answer)
+        
+        # Display answers by category
+        for category in ['Home', 'Mobility', 'Food', 'Consumption']:
+            if category in answers_by_category:
+                answers_context += f"\n{category}:"
+                for answer in answers_by_category[category]:
+                    q_id = answer.get('questionId', '?')
+                    co2 = answer.get('co2', 0)
+                    option_idx = answer.get('optionIndex', '?')
+                    
+                    # Get the actual question text and option from QUESTIONS database
+                    if category in QUESTIONS:
+                        for q in QUESTIONS[category]:
+                            if q['id'] == q_id and option_idx < len(q['options']):
+                                question_text = q['question']
+                                selected_option = q['options'][option_idx]['text']
+                                answers_context += f"\n  • Q: \"{question_text}\""
+                                answers_context += f"\n    Answered: \"{selected_option}\" (adds {co2} kg CO₂)"
+        
+        answers_context += "\n\n💡 Use this to explain EXACTLY which choices contributed to their emissions!"
+        answers_context += "\n   Example: 'Your high Mobility score comes from choosing [specific answer]'"
+        system_prompt += answers_context
     
     # Add user message to history
     conversation_history[session_id].append({
@@ -462,6 +601,20 @@ def clear_chat():
         del conversation_history[session_id]
     
     return jsonify({"success": True})
+
+@app.route('/debug-context', methods=['POST'])
+def debug_context():
+    """Debug endpoint to see what context is being received"""
+    data = request.json
+    return jsonify({
+        "received": {
+            "screen_context": data.get('screen_context'),
+            "current_question": data.get('current_question'),
+            "has_question": bool(data.get('current_question')),
+            "question_type": str(type(data.get('current_question'))),
+            "full_data": data
+        }
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

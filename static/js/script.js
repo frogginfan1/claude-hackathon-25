@@ -53,6 +53,23 @@ async function startQuiz() {
 function displayQuestion() {
     const question = questions[currentQuestionIndex];
     
+    // Update current question context for chatbot
+    currentQuestionContext = {
+        number: currentQuestionIndex + 1,
+        total: questions.length,
+        category: question.category,
+        question: question.question,
+        options: question.options.map(opt => opt.text)
+    };
+    
+    // Debug: Log context update
+    console.log('✅ Question context updated:', currentQuestionContext);
+    
+    // Update chatbot status if it's open
+    if (isChatbotOpen) {
+        updateChatbotStatus();
+    }
+    
     // Update progress
     const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
     document.getElementById('progressBar').style.width = `${progress}%`;
@@ -151,6 +168,9 @@ function previousQuestion() {
 
 async function finishQuiz() {
     try {
+        // Store answers for chatbot context
+        userAnswers = answers;
+        
         // Send answers to backend
         const response = await fetch('/calculate-results', {
             method: 'POST',
@@ -304,6 +324,23 @@ function switchScreen(screenId) {
     // Add active class to target screen
     document.getElementById(screenId).classList.add('active');
     
+    // Update screen context for chatbot
+    if (screenId === 'startScreen') {
+        currentScreenContext = 'start';
+        currentQuestionContext = null;
+    } else if (screenId === 'quizScreen') {
+        currentScreenContext = 'quiz';
+    } else if (screenId === 'resultsScreen') {
+        currentScreenContext = 'results';
+        currentQuestionContext = null; // Clear question context on results page
+        console.log('✅ Switched to Results - Question context cleared');
+    }
+    
+    // Update chatbot status if open
+    if (isChatbotOpen) {
+        updateChatbotStatus();
+    }
+    
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -313,6 +350,9 @@ function switchScreen(screenId) {
 let chatSessionId = 'session_' + Date.now();
 let currentResults = null;
 let isChatbotOpen = false;
+let currentScreenContext = 'start';
+let currentQuestionContext = null;
+let userAnswers = null; // Store user's quiz answers
 
 // Initialize chatbot event listeners
 function initializeChatbot() {
@@ -327,6 +367,15 @@ function initializeChatbot() {
         chatbot.classList.add('active');
         isChatbotOpen = true;
         chatInput.focus();
+        
+        // Debug: Log current context when opening chatbot
+        console.log('Chatbot opened - Current context:', {
+            screen: currentScreenContext,
+            question: currentQuestionContext
+        });
+        
+        // Update status indicator
+        updateChatbotStatus();
     });
     
     // Close chatbot
@@ -378,17 +427,26 @@ async function sendChatMessage() {
     }
     
     try {
-        // Send message to backend
+        // Prepare context data
+        const contextData = {
+            message: message,
+            results: currentResults,
+            session_id: chatSessionId,
+            screen_context: currentScreenContext,
+            current_question: currentQuestionContext,
+            user_answers: userAnswers // Include user's quiz answers
+        };
+        
+        // Debug: Log what we're sending
+        console.log('Sending to chatbot:', contextData);
+        
+        // Send message to backend with screen context
         const response = await fetch('/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                message: message,
-                results: currentResults,
-                session_id: chatSessionId
-            })
+            body: JSON.stringify(contextData)
         });
         
         const data = await response.json();
@@ -427,22 +485,54 @@ function addMessageToChat(message, sender) {
     const content = document.createElement('div');
     content.className = 'message-content';
     
-    // Convert markdown-like formatting to HTML
-    const formattedMessage = message
-        .split('\n').map(line => {
-            if (line.trim().startsWith('-')) {
-                return `<li>${line.trim().substring(1).trim()}</li>`;
+    // Clean and format the message
+    let formattedMessage = message
+        // Remove markdown bold/italic (not supported in our UI)
+        .replace(/\*\*(.+?)\*\*/g, '$1')  // Remove **bold**
+        .replace(/\*(.+?)\*/g, '$1')       // Remove *italic*
+        .replace(/\_\_(.+?)\_\_/g, '$1')  // Remove __bold__
+        .replace(/\_(.+?)\_/g, '$1');     // Remove _italic_
+    
+    // Split into lines and convert to HTML
+    const lines = formattedMessage.split('\n');
+    let html = '';
+    let inList = false;
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        // Handle bullet points (-, •, or *)
+        if (trimmed.match(/^[-•\*]\s/)) {
+            if (!inList) {
+                html += '<ul>';
+                inList = true;
             }
-            return `<p>${line}</p>`;
-        }).join('');
+            html += `<li>${trimmed.substring(1).trim()}</li>`;
+        } 
+        // Handle numbered lists
+        else if (trimmed.match(/^\d+\.\s/)) {
+            if (!inList) {
+                html += '<ul>';
+                inList = true;
+            }
+            html += `<li>${trimmed.replace(/^\d+\.\s/, '')}</li>`;
+        }
+        // Regular paragraph
+        else if (trimmed) {
+            if (inList) {
+                html += '</ul>';
+                inList = false;
+            }
+            html += `<p>${trimmed}</p>`;
+        }
+    }
     
-    // Wrap list items in ul tags
-    let finalHTML = formattedMessage.replace(/(<li>.*<\/li>)+/g, (match) => `<ul>${match}</ul>`);
+    // Close any open list
+    if (inList) {
+        html += '</ul>';
+    }
     
-    // Remove empty paragraphs
-    finalHTML = finalHTML.replace(/<p><\/p>/g, '');
-    
-    content.innerHTML = finalHTML;
+    content.innerHTML = html;
     
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(content);
@@ -495,10 +585,17 @@ finishQuiz = async function() {
             isChatbotOpen = true;
             
             // Add a contextual welcome message
-            addMessageToChat(
-                "I can see your results now! I'm here to help you understand your carbon footprint and answer any questions you have about reducing your emissions. What would you like to know?",
-                'bot'
-            );
+            const diff = currentResults.total_difference;
+            let message = "🎉 Results are in! ";
+            if (diff > 0) {
+                message += `You're ${diff} kg above average. Let's find your easiest wins to close that gap! What questions do you have?`;
+            } else if (diff < 0) {
+                message += `Nice work - you're ${Math.abs(diff)} kg below average! Want to go even further? I've got ideas! 🌱`;
+            } else {
+                message += "You're right at average. Ready to level up your eco-game? Let's chat!";
+            }
+            
+            addMessageToChat(message, 'bot');
         }
     }, 1500);
 };
@@ -509,6 +606,20 @@ displayResults = function(data) {
     currentResults = data;
     originalDisplayResults(data);
 };
+
+// Update chatbot status indicator
+function updateChatbotStatus() {
+    const statusEl = document.getElementById('chatbotStatus');
+    if (!statusEl) return;
+    
+    if (currentScreenContext === 'quiz' && currentQuestionContext) {
+        statusEl.textContent = `💬 Here to help with the quiz`;
+    } else if (currentScreenContext === 'results') {
+        statusEl.textContent = '📊 Analyzing your results';
+    } else {
+        statusEl.textContent = '🌱 Your sustainability guide';
+    }
+}
 
 // Initialize chatbot when page loads
 document.addEventListener('DOMContentLoaded', () => {
