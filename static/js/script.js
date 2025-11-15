@@ -441,6 +441,9 @@ function displayResults(data) {
         const categoryDiv = createCategoryResult(categoryName, categoryData);
         categoriesContainer.appendChild(categoryDiv);
     });
+    
+    // Calculate and display global impact
+    calculateGlobalImpact(data.total.co2);
 }
 
 function createCategoryResult(categoryName, data) {
@@ -501,6 +504,71 @@ function createCategoryResult(categoryName, data) {
     `;
     
     return div;
+}
+
+function calculateGlobalImpact(userTotalKg) {
+    // Convert kg to tonnes for user
+    const userTotalTonnes = userTotalKg / 1000;
+    
+    // Constants
+    const worldPopulation = 8000000000; // 8 billion
+    const actual2024 = 37.4; // billion tonnes CO₂
+    const projected2050 = 43.2; // billion tonnes (current trajectory)
+    const target2050 = 25.0; // billion tonnes (Paris Agreement target)
+    
+    // Calculate if everyone lived like user
+    const globalIfUser2024 = (userTotalTonnes * worldPopulation) / 1000000000; // Convert to billions
+    const globalIfUser2050 = globalIfUser2024 * 1.05; // Assume 5% increase by 2050
+    
+    // Display 2024 comparison
+    document.getElementById('global-emissions-yours').textContent = globalIfUser2024.toFixed(1);
+    
+    // Temperature impact calculation
+    const emissionsDiff = globalIfUser2024 - actual2024;
+    let tempImpact = '';
+    
+    if (emissionsDiff < -10) {
+        tempImpact = 'Your lifestyle could help limit warming to 1.5°C! 🌍';
+    } else if (emissionsDiff < 0) {
+        tempImpact = 'Your lifestyle would reduce global warming compared to current trends! 🌱';
+    } else if (emissionsDiff < 10) {
+        tempImpact = 'Your lifestyle is close to current global average (≈2-2.5°C warming) 🌡️';
+    } else {
+        tempImpact = 'Your lifestyle would increase global warming beyond 3°C 🔥';
+    }
+    
+    document.getElementById('temp-impact-text').textContent = tempImpact;
+    
+    // Display 2050 projection
+    document.getElementById('future-emissions-yours').textContent = globalIfUser2050.toFixed(1);
+    
+    // Scenario analysis
+    const scenarioBadge = document.getElementById('scenario-badge');
+    let scenarioText = '';
+    
+    // Remove existing classes
+    scenarioBadge.classList.remove('target-success', 'target-warning');
+    
+    if (globalIfUser2050 < target2050) {
+        scenarioText = 'Your lifestyle aligns with Paris Agreement targets! 🎯';
+        scenarioBadge.classList.add('target-success');
+    } else if (globalIfUser2050 < projected2050) {
+        scenarioText = 'Your lifestyle is better than current trajectory, but more improvement needed 📊';
+        // Default styling (no additional class)
+    } else {
+        scenarioText = 'Your lifestyle exceeds current emission projections ⚠️';
+        scenarioBadge.classList.add('target-warning');
+    }
+    
+    document.getElementById('scenario-text').textContent = scenarioText;
+    
+    console.log('🌍 Global Impact Calculated:', {
+        userKg: userTotalKg,
+        userTonnes: userTotalTonnes,
+        global2024: globalIfUser2024,
+        global2050: globalIfUser2050,
+        scenario: scenarioText
+    });
 }
 
 function resetQuiz() {

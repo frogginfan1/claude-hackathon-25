@@ -111,6 +111,60 @@
                 <!-- Category results will be dynamically inserted -->
             </div>
 
+            <!-- Global Impact Visualization -->
+            <div class="global-impact-section">
+                <h2 class="section-title">
+                    <i class="fas fa-globe-americas"></i>
+                    Global Impact Visualization
+                </h2>
+                
+                <div class="impact-card">
+                    <h3 class="impact-subtitle">If Everyone Lived Like You in 2024</h3>
+                    <div class="comparison-grid">
+                        <div class="comparison-item">
+                            <p class="comparison-label">Your Lifestyle Emissions</p>
+                            <p class="comparison-value" id="global-emissions-yours">0</p>
+                            <p class="comparison-unit">billion tonnes CO₂</p>
+                        </div>
+                        <div class="comparison-divider">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                        <div class="comparison-item">
+                            <p class="comparison-label">Actual 2024 Emissions</p>
+                            <p class="comparison-value actual">37.4</p>
+                            <p class="comparison-unit">billion tonnes CO₂</p>
+                        </div>
+                    </div>
+                    <div class="temperature-impact">
+                        <i class="fas fa-temperature-high"></i>
+                        <p id="temp-impact-text"></p>
+                    </div>
+                </div>
+
+                <div class="impact-card future-card">
+                    <h3 class="impact-subtitle">Projected Impact by 2050</h3>
+                    <div class="comparison-grid">
+                        <div class="comparison-item">
+                            <p class="comparison-label">If Everyone Like You</p>
+                            <p class="comparison-value" id="future-emissions-yours">0</p>
+                            <p class="comparison-unit">billion tonnes CO₂</p>
+                        </div>
+                        <div class="comparison-divider">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                        <div class="comparison-item">
+                            <p class="comparison-label">Current Trajectory (2050)</p>
+                            <p class="comparison-value actual">43.2</p>
+                            <p class="comparison-unit">billion tonnes CO₂</p>
+                        </div>
+                    </div>
+                    <div class="scenario-badge" id="scenario-badge">
+                        <i class="fas fa-info-circle"></i>
+                        <span id="scenario-text"></span>
+                    </div>
+                </div>
+            </div>
+
             <div class="results-footer">
                 <p class="encouragement">Every small change makes a difference. Start with one tip today!</p>
                 <button id="retake-btn" class="btn btn-secondary">
