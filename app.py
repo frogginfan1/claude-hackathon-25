@@ -3,13 +3,17 @@ import random
 import os
 from anthropic import Anthropic
 from ml_calculator import calculate_emission, get_comparison_data
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if it exists
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Initialize Claude API client
 anthropic_client = Anthropic(
-    api_key=os.environ.get('ANTHROPIC_API_KEY', '')
+    api_key=os.getenv('ANTHROPIC_API_KEY', '')
 )
 
 # Store conversation history per session

@@ -1,5 +1,6 @@
 Flask==2.3.0
 anthropic>=0.34.0
+python-dotenv==1.0.0
 
 # Note: ML-informed calculator doesn't require heavy dependencies
 # The calculations are based on CatBoost model insights (R² = 0.9907)

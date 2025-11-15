@@ -22,17 +22,39 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Step 4: Set Up API Key
+### Step 4: Set Up API Key ⚠️ IMPORTANT
 
-You need an Anthropic API key for the chatbot to work. 
+You need an Anthropic API key for the chatbot to work. **Everyone needs their own API key.**
 
-**Option A: Get your own API key (Recommended)**
-1. Go to https://console.anthropic.com/settings/keys
-2. Create a new API key
-3. Set it as an environment variable:
+**How to get and set up your API key:**
+
+1. **Get your API key:**
+   - Go to https://console.anthropic.com/settings/keys
+   - Sign up or log in
+   - Create a new API key (free tier available)
+
+2. **Create a `.env` file in the project root:**
    ```bash
-   export ANTHROPIC_API_KEY='your-key-here'
+   # Create the file
+   touch .env
+   
+   # Open it in your editor
+   nano .env
+   # OR
+   code .env
    ```
+
+3. **Add your API key to the `.env` file:**
+   ```
+   ANTHROPIC_API_KEY=sk-ant-api03-YOUR-KEY-HERE
+   FLASK_SECRET_KEY=your-random-secret-key-here
+   ```
+   
+   Replace `sk-ant-api03-YOUR-KEY-HERE` with your actual API key from step 1.
+
+4. **Save the file** (Ctrl+O, Enter, Ctrl+X in nano)
+
+⚠️ **Note:** The `.env` file is already in `.gitignore`, so your API key will NOT be committed to GitHub.
 
 ### Step 5: Run the Application
 
