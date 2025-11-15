@@ -160,22 +160,22 @@ PRODUCTS = {
         {
             "name": "Smart Thermostat - Nest Learning",
             "description": "Reduces heating costs by 10-12%",
-            "price": "$249",
-            "link": "#",
+            "price": "$90",
+            "link": "https://www.amazon.com/Google-Nest-Thermostat-Smart-Programmable/dp/B08HRPDYTP",
             "image": "https://images.unsplash.com/photo-1558002038-1055907df827?w=400&h=300&fit=crop"
         },
         {
             "name": "LED Smart Bulbs (4-Pack)",
             "description": "75% less energy than traditional bulbs",
-            "price": "$45",
-            "link": "#",
+            "price": "$30",
+            "link": "https://www.amazon.com/Amazon-Basics-Dimmable-2-4GHz-Equivalent/dp/B0D34WN3JG",
             "image": "https://images.unsplash.com/photo-1567226475328-9d6baaf565cf?w=400&h=300&fit=crop"
         },
         {
             "name": "Window Insulation Kit",
             "description": "Reduces heat loss by up to 55%",
-            "price": "$29",
-            "link": "#",
+            "price": "$15",
+            "link": "https://www.amazon.com/Duck-Brand-SFWK-Shrink-Window/dp/B09JM8DCYL",
             "image": "https://images.unsplash.com/photo-1545259741-2ea3ebf61fa3?w=400&h=300&fit=crop"
         }
     ],
@@ -183,22 +183,22 @@ PRODUCTS = {
         {
             "name": "Electric Bike Conversion Kit",
             "description": "Transform your bike, reduce car trips",
-            "price": "$599",
-            "link": "#",
+            "price": "$200",
+            "link": "https://www.amazon.com/Jasion-Removable-Commuting-Brushless-Suspension/dp/B09L63HGDP",
             "image": "https://images.unsplash.com/photo-1571333250630-f0230c320b6d?w=400&h=300&fit=crop"
         },
         {
             "name": "Public Transport Annual Pass",
             "description": "Unlimited travel, zero emissions guilt",
-            "price": "$1,200/year",
-            "link": "#",
+            "price": "$200/year",
+            "link": "https://tcatbus.com/fare-pass-options/",
             "image": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400&h=300&fit=crop"
         },
         {
             "name": "Carbon Offset - Flight Credits",
             "description": "Offset your annual flight emissions",
-            "price": "$50-200",
-            "link": "#",
+            "price": "$8-$80",
+            "link": "https://terrapass.com/product/flight-carbon-offset/",
             "image": "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=400&h=300&fit=crop"
         }
     ],
@@ -206,22 +206,22 @@ PRODUCTS = {
         {
             "name": "Indoor Herb Garden Kit",
             "description": "Grow your own fresh herbs year-round",
-            "price": "$89",
-            "link": "#",
+            "price": "$50",
+            "link": "https://www.amazon.com/Indoor-Garden-Hydroponic-Growing-System/dp/B0B6BB4TVC",
             "image": "https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=400&h=300&fit=crop"
         },
         {
             "name": "Reusable Food Storage Set",
             "description": "Eliminate single-use plastic",
-            "price": "$35",
-            "link": "#",
+            "price": "$13",
+            "link": "https://www.amazon.com/Bentgo-1-Compartment-Meal-Prep-Containers-Custom-Fit/dp/B08CVTY9FS",
             "image": "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=400&h=300&fit=crop"
         },
         {
             "name": "Compost Bin - Kitchen Counter",
             "description": "Turn food scraps into garden gold",
-            "price": "$75",
-            "link": "#",
+            "price": "$30",
+            "link": "https://www.amazon.com/Epica-Stainless-Compost-Gallon-Charcoal/dp/B00AMNCYNQ",
             "image": "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=300&fit=crop"
         }
     ],
@@ -229,22 +229,22 @@ PRODUCTS = {
         {
             "name": "Reusable Shopping Bags Set",
             "description": "Durable, washable, replaces 1000s of plastic bags",
-            "price": "$25",
-            "link": "#",
+            "price": "$8.25",
+            "link": "https://www.amazon.com/Ikea-Large-Shopping-Bags-SET/dp/B00KVJJGN2",
             "image": "https://images.unsplash.com/photo-1553913861-c0fddf2619ee?w=400&h=300&fit=crop"
         },
         {
             "name": "Bamboo Toothbrush Set (10-Pack)",
             "description": "Biodegradable alternative to plastic",
-            "price": "$18",
-            "link": "#",
+            "price": "$8",
+            "link": "https://www.amazon.com/Nuduko-Biodegradable-Toothbrushes-Toothbrush-Eco-Friendly/dp/B07V4CW682",
             "image": "https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?w=400&h=300&fit=crop"
         },
         {
             "name": "Stainless Steel Water Bottle",
             "description": "Insulated, eliminates 156 plastic bottles/year",
-            "price": "$32",
-            "link": "#",
+            "price": "$30",
+            "link": "https://www.amazon.com/Owala-Insulated-Stainless-Steel-Push-Button-24-Ounce/dp/B085DTZQNZ",
             "image": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400&h=300&fit=crop"
         }
     ]

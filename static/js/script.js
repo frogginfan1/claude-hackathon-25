@@ -493,11 +493,15 @@ function createCategoryResult(categoryName, data) {
             </h4>
             <div class="products-grid">
                 ${data.products.map(product => `
-                    <div class="product-card">
+                    <a href="${product.link}" target="_blank" rel="noopener noreferrer" class="product-card">
                         <div class="product-name">${product.name}</div>
                         <div class="product-description">${product.description}</div>
-                        <div class="product-impact">${product.impact}</div>
-                    </div>
+                        <div class="product-price">${product.price}</div>
+                        <div class="product-cta">
+                            <i class="fas fa-shopping-cart"></i>
+                            View Product
+                        </div>
+                    </a>
                 `).join('')}
             </div>
         </div>
