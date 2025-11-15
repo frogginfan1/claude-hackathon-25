@@ -222,7 +222,7 @@ PRODUCTS = {
             "description": "Turn food scraps into garden gold",
             "price": "$75",
             "link": "#",
-            "image": "https://images.unsplash.com/photo-1572297794821-4c1cf7f7f943?w=400&h=300&fit=crop"
+            "image": "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=300&fit=crop"
         }
     ],
     "Consumption": [
@@ -231,7 +231,7 @@ PRODUCTS = {
             "description": "Durable, washable, replaces 1000s of plastic bags",
             "price": "$25",
             "link": "#",
-            "image": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&h=300&fit=crop"
+            "image": "https://images.unsplash.com/photo-1553913861-c0fddf2619ee?w=400&h=300&fit=crop"
         },
         {
             "name": "Bamboo Toothbrush Set (10-Pack)",
@@ -290,6 +290,10 @@ TIPS = {
 def index():
     return render_template('index.html')
 
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204  # No content response
+
 @app.route('/get-questions', methods=['GET'])
 def get_questions():
     """Return randomized questions"""
@@ -306,77 +310,127 @@ def get_questions():
 @app.route('/calculate-results', methods=['POST'])
 def calculate_results():
     """Calculate CO2 emissions and provide recommendations"""
-    data = request.json
-    answers = data.get('answers', [])
-    
-    # Calculate emissions by category
-    category_emissions = {
-        "Home": 0,
-        "Mobility": 0,
-        "Food": 0,
-        "Consumption": 0
-    }
-    
-    for answer in answers:
-        category = answer['category']
-        co2 = answer['co2']
-        category_emissions[category] += co2
-    
-    # Convert monthly/weekly to annual
-    for category in category_emissions:
-        category_emissions[category] = round(category_emissions[category] * 12)  # Approximate annual
-    
-    # Calculate differences from average
-    differences = {}
-    for category, emissions in category_emissions.items():
-        diff = emissions - AVERAGE_EMISSIONS[category]
-        differences[category] = {
-            "emissions": emissions,
-            "average": AVERAGE_EMISSIONS[category],
-            "difference": diff,
-            "percentage": round((diff / AVERAGE_EMISSIONS[category]) * 100)
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data received"}), 400
+        
+        answers = data.get('answers', [])
+        
+        if not answers:
+            return jsonify({"error": "No answers provided"}), 400
+        
+        print(f"Received {len(answers)} answers")
+        print(f"Answers: {answers}")
+        
+        # Calculate emissions by category
+        category_emissions = {
+            "Home": 0,
+            "Mobility": 0,
+            "Food": 0,
+            "Consumption": 0
         }
-    
-    # Sort categories by how far from average (worst first)
-    sorted_categories = sorted(
-        differences.items(),
-        key=lambda x: abs(x[1]['difference']),
-        reverse=True
-    )
-    
-    # Prepare response with tips and products
-    results = []
-    for category, data in sorted_categories:
-        results.append({
-            "category": category,
-            "emissions": data["emissions"],
-            "average": data["average"],
-            "difference": data["difference"],
-            "percentage": data["percentage"],
-            "tips": TIPS[category][:3],  # Top 3 tips
-            "products": PRODUCTS[category]
+        
+        for answer in answers:
+            # Skip None/null entries
+            if answer is None:
+                print("Warning: Skipping None answer")
+                continue
+            
+            # Ensure answer is a dictionary
+            if not isinstance(answer, dict):
+                print(f"Warning: Skipping non-dict answer: {answer}")
+                continue
+                
+            category = answer.get('category')
+            co2 = answer.get('co2', 0)
+            
+            if category in category_emissions:
+                category_emissions[category] += co2
+            else:
+                print(f"Warning: Unknown category '{category}'")
+        
+        print(f"Category emissions: {category_emissions}")
+        
+        # Convert monthly/weekly to annual
+        for category in category_emissions:
+            category_emissions[category] = round(category_emissions[category] * 12)  # Approximate annual
+        
+        # Calculate differences from average
+        differences = {}
+        for category, emissions in category_emissions.items():
+            diff = emissions - AVERAGE_EMISSIONS[category]
+            differences[category] = {
+                "emissions": emissions,
+                "average": AVERAGE_EMISSIONS[category],
+                "difference": diff,
+                "percentage": round((diff / AVERAGE_EMISSIONS[category]) * 100)
+            }
+        
+        # Sort categories by how far from average (worst first)
+        sorted_categories = sorted(
+            differences.items(),
+            key=lambda x: abs(x[1]['difference']),
+            reverse=True
+        )
+        
+        # Prepare response with tips and products
+        results = []
+        for category, data in sorted_categories:
+            results.append({
+                "category": category,
+                "emissions": data["emissions"],
+                "average": data["average"],
+                "difference": data["difference"],
+                "percentage": data["percentage"],
+                "tips": TIPS[category][:3],  # Top 3 tips
+                "products": PRODUCTS[category]
+            })
+        
+        total_emissions = sum(category_emissions.values())
+        total_average = sum(AVERAGE_EMISSIONS.values())
+        
+        print(f"Returning results: total_emissions={total_emissions}")
+        
+        return jsonify({
+            "results": results,
+            "total_emissions": total_emissions,
+            "total_average": total_average,
+            "total_difference": total_emissions - total_average
         })
     
-    total_emissions = sum(category_emissions.values())
-    total_average = sum(AVERAGE_EMISSIONS.values())
-    
-    return jsonify({
-        "results": results,
-        "total_emissions": total_emissions,
-        "total_average": total_average,
-        "total_difference": total_emissions - total_average
-    })
+    except Exception as e:
+        print(f"Error calculating results: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/chat', methods=['POST'])
 def chat():
     """Handle chatbot interactions using Claude API"""
-    data = request.json
-    user_message = data.get('message', '')
-    user_results = data.get('results', None)
-    session_id = data.get('session_id', 'default')
-    screen_context = data.get('screen_context', 'unknown')
-    current_question = data.get('current_question', None)
-    user_answers = data.get('user_answers', None)
+    try:
+        data = request.json
+        user_message = data.get('message', '').strip()
+        user_results = data.get('results', None)
+        session_id = data.get('session_id', 'default')
+        screen_context = data.get('screen_context', 'unknown')
+        current_question = data.get('current_question', None)
+        user_answers = data.get('user_answers', None)
+        
+        # Validate user message is not empty
+        if not user_message:
+            print("ERROR: Empty user message received")
+            return jsonify({
+                "success": False,
+                "message": "Please enter a message to chat with EcoCoach!"
+            }), 400
+            
+    except Exception as e:
+        print(f"Error parsing request: {e}")
+        return jsonify({
+            "success": False,
+            "message": "Sorry, there was an error processing your request. Please try again!"
+        }), 400
     
     # Debug logging
     print(f"\n=== CHAT REQUEST ===")
@@ -515,44 +569,66 @@ CONVERSATION STYLE:
     
     # Add user's quiz answers if available
     if user_answers and isinstance(user_answers, list):
-        answers_context = f"\n\n📝 USER'S QUIZ ANSWERS:\n"
-        answers_context += "Here are the specific choices they made:\n"
-        
-        # Group answers by category
-        answers_by_category = {}
-        for answer in user_answers:
-            category = answer.get('category', 'Unknown')
-            if category not in answers_by_category:
-                answers_by_category[category] = []
-            answers_by_category[category].append(answer)
-        
-        # Display answers by category
-        for category in ['Home', 'Mobility', 'Food', 'Consumption']:
-            if category in answers_by_category:
-                answers_context += f"\n{category}:"
-                for answer in answers_by_category[category]:
-                    q_id = answer.get('questionId', '?')
-                    co2 = answer.get('co2', 0)
-                    option_idx = answer.get('optionIndex', '?')
-                    
-                    # Get the actual question text and option from QUESTIONS database
-                    if category in QUESTIONS:
-                        for q in QUESTIONS[category]:
-                            if q['id'] == q_id and option_idx < len(q['options']):
-                                question_text = q['question']
-                                selected_option = q['options'][option_idx]['text']
-                                answers_context += f"\n  • Q: \"{question_text}\""
-                                answers_context += f"\n    Answered: \"{selected_option}\" (adds {co2} kg CO₂)"
-        
-        answers_context += "\n\n💡 Use this to explain EXACTLY which choices contributed to their emissions!"
-        answers_context += "\n   Example: 'Your high Mobility score comes from choosing [specific answer]'"
-        system_prompt += answers_context
+        try:
+            answers_context = f"\n\n📝 USER'S QUIZ ANSWERS:\n"
+            answers_context += "Here are the specific choices they made:\n"
+            
+            # Group answers by category
+            answers_by_category = {}
+            for answer in user_answers:
+                category = answer.get('category', 'Unknown')
+                if category not in answers_by_category:
+                    answers_by_category[category] = []
+                answers_by_category[category].append(answer)
+            
+            # Display answers by category
+            for category in ['Home', 'Mobility', 'Food', 'Consumption']:
+                if category in answers_by_category:
+                    answers_context += f"\n{category}:"
+                    for answer in answers_by_category[category]:
+                        q_num = answer.get('questionNumber', '?')
+                        q_text = answer.get('questionText', 'Unknown question')
+                        selected = answer.get('selectedOption', 'Unknown option')
+                        co2 = answer.get('co2', 0)
+                        
+                        answers_context += f"\n  • Question {q_num}: \"{q_text}\""
+                        answers_context += f"\n    Answered: \"{selected}\" (adds {co2} kg CO₂)"
+            
+            answers_context += "\n\n💡 Use this to explain EXACTLY which choices contributed to their emissions!"
+            answers_context += "\n   Example: 'Your high Mobility score comes from Question 5 where you chose \"Gasoline/Diesel car\"'"
+            answers_context += "\n   You can reference questions by their number (Question 1, Question 2, etc.)"
+            system_prompt += answers_context
+        except Exception as e:
+            print(f"Error processing user answers: {e}")
+            # Continue without answers context if there's an error
     
     # Add user message to history
     conversation_history[session_id].append({
         "role": "user",
         "content": user_message
     })
+    
+    # Debug: Log system prompt length
+    print(f"System prompt length: {len(system_prompt)} characters")
+    print(f"Conversation history length: {len(conversation_history[session_id])} messages")
+    
+    # Validate that messages alternate properly and clean up bad messages
+    cleaned_history = []
+    for i, msg in enumerate(conversation_history[session_id]):
+        if 'role' not in msg or 'content' not in msg:
+            print(f"WARNING: Message {i} missing required fields: {msg}")
+            continue
+        if not msg.get('content', '').strip():
+            print(f"WARNING: Message {i} has empty content, skipping")
+            continue
+        # Ensure content is a string
+        if not isinstance(msg['content'], str):
+            print(f"WARNING: Message {i} content is not a string: {type(msg['content'])}")
+            msg['content'] = str(msg['content'])
+        cleaned_history.append(msg)
+    
+    conversation_history[session_id] = cleaned_history
+    print(f"Cleaned history: {len(cleaned_history)} messages")
     
     try:
         # Call Claude API
@@ -580,16 +656,18 @@ CONVERSATION STYLE:
             "success": True,
             "message": assistant_message,
             "session_id": session_id
-        })
+        }), 200
     
     except Exception as e:
         print(f"Error calling Claude API: {e}")
+        import traceback
+        traceback.print_exc()
         # Fallback response if API fails
         return jsonify({
             "success": False,
             "message": "I'm having trouble connecting right now. Please make sure your ANTHROPIC_API_KEY is set correctly. In the meantime, feel free to explore your results and try the quiz again!",
             "error": str(e)
-        })
+        }), 500
 
 @app.route('/clear-chat', methods=['POST'])
 def clear_chat():

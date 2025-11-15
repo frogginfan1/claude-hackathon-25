@@ -3,139 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoTrace - Your Carbon Footprint Quiz</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>Carbon Footprint Calculator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <!-- Animated Background -->
-    <div class="background-animation">
-        <div class="leaf leaf1">🌿</div>
-        <div class="leaf leaf2">🍃</div>
-        <div class="leaf leaf3">🌱</div>
-        <div class="leaf leaf4">🌿</div>
-        <div class="leaf leaf5">🍃</div>
-    </div>
-
-    <!-- Start Screen -->
-    <div id="startScreen" class="screen active">
-        <div class="container">
-            <div class="logo-container">
-                <div class="logo">
+    <!-- Landing Page -->
+    <div id="landing-page" class="page active">
+        <div class="hero-container">
+            <div class="background-grid"></div>
+            <div class="glow-orb glow-orb-1"></div>
+            <div class="glow-orb glow-orb-2"></div>
+            <div class="hero-content">
+                <div class="hero-icon">
                     <i class="fas fa-leaf"></i>
                 </div>
-                <h1 class="main-title">EcoTrace</h1>
-                <p class="subtitle">Discover Your Carbon Footprint</p>
-            </div>
-            
-            <div class="info-cards">
-                <div class="info-card">
-                    <i class="fas fa-home"></i>
-                    <h3>Home</h3>
-                    <p>Energy & Heating</p>
-                </div>
-                <div class="info-card">
-                    <i class="fas fa-car"></i>
-                    <h3>Mobility</h3>
-                    <p>Transportation</p>
-                </div>
-                <div class="info-card">
-                    <i class="fas fa-utensils"></i>
-                    <h3>Food</h3>
-                    <p>Diet & Waste</p>
-                </div>
-                <div class="info-card">
-                    <i class="fas fa-shopping-bag"></i>
-                    <h3>Consumption</h3>
-                    <p>Lifestyle Choices</p>
-                </div>
-            </div>
-
-            <button id="startBtn" class="btn btn-primary">
-                <span>Start Quiz</span>
-                <i class="fas fa-arrow-right"></i>
-            </button>
-
-            <div class="stats">
-                <div class="stat">
-                    <span class="stat-number">12</span>
-                    <span class="stat-label">Questions</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-number">3min</span>
-                    <span class="stat-label">Duration</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-number">4</span>
-                    <span class="stat-label">Categories</span>
-                </div>
+                <h1 class="hero-title">
+                    <span class="title-line">Calculate Your</span>
+                    <span class="title-line highlight">Carbon Impact</span>
+                </h1>
+                <p class="hero-subtitle">Discover your daily CO2 emissions and get personalized recommendations to reduce your environmental footprint</p>
+                <button id="start-quiz-btn" class="cta-button">
+                    <span class="button-content">
+                        <span class="button-text">Start Assessment</span>
+                        <i class="fas fa-arrow-right button-icon"></i>
+                    </span>
+                    <span class="button-glow"></span>
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Quiz Screen -->
-    <div id="quizScreen" class="screen">
+    <!-- Quiz Page -->
+    <div id="quiz-page" class="page">
         <div class="quiz-container">
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="progressBar"></div>
-                <span class="progress-text" id="progressText">Question 1 of 12</span>
-            </div>
-
-            <div class="question-card">
-                <div class="category-badge" id="categoryBadge">
+            <div class="quiz-header">
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="current-question">1</span> / <span id="total-questions">12</span>
+                    </div>
+                </div>
+                <div id="category-badge" class="category-badge">
                     <i class="fas fa-home"></i>
                     <span>Home</span>
                 </div>
-                
-                <h2 class="question-text" id="questionText"></h2>
-                
-                <div class="options-container" id="optionsContainer">
-                    <!-- Options will be dynamically inserted -->
-                </div>
-
-                <div class="quiz-navigation">
-                    <button id="prevBtn" class="btn btn-secondary" style="display: none;">
-                        <i class="fas fa-arrow-left"></i>
-                        Previous
-                    </button>
-                    <button id="nextBtn" class="btn btn-primary" disabled>
-                        Next
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
+            </div>
+            <div class="quiz-content">
+                <h2 id="question-text" class="question-text">Loading question...</h2>
+                <div id="answers-container" class="answers-container">
+                    <!-- Answers will be dynamically inserted -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Results Screen -->
-    <div id="resultsScreen" class="screen">
+    <!-- Results Page -->
+    <div id="results-page" class="page">
         <div class="results-container">
             <div class="results-header">
                 <div class="results-icon">
                     <i class="fas fa-chart-line"></i>
                 </div>
-                <h1>Your Carbon Footprint</h1>
+                <h1 class="results-title">Your Carbon Footprint</h1>
                 <div class="total-emissions">
-                    <div class="emission-value" id="totalEmissions">0</div>
-                    <div class="emission-label">kg CO₂/year</div>
+                    <div class="total-label">Total Daily Emissions</div>
+                    <div id="total-co2" class="total-value">0 kg CO2</div>
                 </div>
-                <div class="comparison" id="comparisonText"></div>
             </div>
-
-            <div id="categoryResults" class="category-results">
+            <div id="results-breakdown" class="results-breakdown">
                 <!-- Results will be dynamically inserted -->
-            </div>
-
-            <div class="action-buttons">
-                <button id="retakeBtn" class="btn btn-secondary">
-                    <i class="fas fa-redo"></i>
-                    Retake Quiz
-                </button>
-                <button id="shareBtn" class="btn btn-primary">
-                    <i class="fas fa-share-alt"></i>
-                    Share Results
-                </button>
             </div>
         </div>
     </div>
@@ -195,6 +137,12 @@
                 </button>
             </div>
         </div>
+        
+        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
     </div>
 
     <!-- Floating Chat Button -->
@@ -203,7 +151,6 @@
         <span class="chat-badge">Ask EcoCoach!</span>
     </button>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="/static/js/script.js"></script>
 </body>
 </html>
-

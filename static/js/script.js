@@ -1,7 +1,9 @@
-// Quiz State
+// ===================================
+// Quiz Data & State
+// ===================================
 let questions = [];
 let currentQuestionIndex = 0;
-let answers = [];
+let userAnswers = [];
 
 // Category Icons
 const categoryIcons = {
@@ -11,36 +13,79 @@ const categoryIcons = {
     'Consumption': 'fa-shopping-bag'
 };
 
-// Initialize
+// ===================================
+// Chatbot State
+// ===================================
+let chatSessionId = 'session_' + Date.now();
+let currentResults = null;
+let isChatbotOpen = false;
+let currentScreenContext = 'start';
+let currentQuestionContext = null;
+
+// ===================================
+// Initialization
+// ===================================
 document.addEventListener('DOMContentLoaded', () => {
-    initializeEventListeners();
+    initializeApp();
+    initializeChatbot();
 });
 
-function initializeEventListeners() {
-    // Start button
-    document.getElementById('startBtn').addEventListener('click', startQuiz);
+function initializeApp() {
+    // Start quiz button
+    document.getElementById('start-quiz-btn').addEventListener('click', startQuiz);
     
-    // Navigation buttons
-    document.getElementById('nextBtn').addEventListener('click', nextQuestion);
-    document.getElementById('prevBtn').addEventListener('click', previousQuestion);
-    
-    // Action buttons
-    document.getElementById('retakeBtn').addEventListener('click', retakeQuiz);
-    document.getElementById('shareBtn').addEventListener('click', shareResults);
+    // Show landing page
+    showPage('landing-page');
 }
 
+// ===================================
+// Page Navigation
+// ===================================
+function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
+    document.getElementById(pageId).classList.add('active');
+    
+    // Update screen context for chatbot
+    if (pageId === 'landing-page') {
+        currentScreenContext = 'start';
+        currentQuestionContext = null;
+    } else if (pageId === 'quiz-page') {
+        currentScreenContext = 'quiz';
+    } else if (pageId === 'results-page') {
+        currentScreenContext = 'results';
+        currentQuestionContext = null;
+        console.log('✅ Switched to Results - Question context cleared');
+    }
+    
+    // Update chatbot status if open
+    if (isChatbotOpen) {
+        updateChatbotStatus();
+    }
+}
+
+// ===================================
+// Quiz Logic
+// ===================================
 async function startQuiz() {
     try {
         // Fetch questions from backend
         const response = await fetch('/get-questions');
         questions = await response.json();
         
-        // Reset state
+        // Reset state - create a fresh empty array
         currentQuestionIndex = 0;
-        answers = [];
+        userAnswers = [];
+        
+        console.log(`🎯 Starting quiz with ${questions.length} questions`);
+        console.log('Reset userAnswers to empty array');
+        
+        // Update total questions
+        document.getElementById('total-questions').textContent = questions.length;
         
         // Switch to quiz screen
-        switchScreen('quizScreen');
+        showPage('quiz-page');
         
         // Display first question
         displayQuestion();
@@ -62,7 +107,6 @@ function displayQuestion() {
         options: question.options.map(opt => opt.text)
     };
     
-    // Debug: Log context update
     console.log('✅ Question context updated:', currentQuestionContext);
     
     // Update chatbot status if it's open
@@ -72,104 +116,85 @@ function displayQuestion() {
     
     // Update progress
     const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-    document.getElementById('progressBar').style.width = `${progress}%`;
-    document.getElementById('progressText').textContent = 
-        `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+    document.getElementById('progress-fill').style.width = `${progress}%`;
+    document.getElementById('current-question').textContent = currentQuestionIndex + 1;
     
     // Update category badge
-    const categoryBadge = document.getElementById('categoryBadge');
     const iconClass = categoryIcons[question.category];
+    const categoryBadge = document.getElementById('category-badge');
     categoryBadge.innerHTML = `
         <i class="fas ${iconClass}"></i>
         <span>${question.category}</span>
     `;
     
     // Update question text
-    document.getElementById('questionText').textContent = question.question;
+    document.getElementById('question-text').textContent = question.question;
     
-    // Create options
-    const optionsContainer = document.getElementById('optionsContainer');
-    optionsContainer.innerHTML = '';
+    // Display answers
+    const answersContainer = document.getElementById('answers-container');
+    answersContainer.innerHTML = '';
     
     question.options.forEach((option, index) => {
-        const optionDiv = document.createElement('div');
-        optionDiv.className = 'option';
-        optionDiv.textContent = option.text;
-        optionDiv.dataset.index = index;
+        const button = document.createElement('button');
+        button.className = 'answer-option';
+        button.textContent = option.text;
         
-        // Check if this option was previously selected
-        const previousAnswer = answers[currentQuestionIndex];
+        // Check if this was previously selected
+        const previousAnswer = userAnswers[currentQuestionIndex];
         if (previousAnswer && previousAnswer.optionIndex === index) {
-            optionDiv.classList.add('selected');
-            document.getElementById('nextBtn').disabled = false;
+            button.classList.add('selected');
         }
         
-        optionDiv.addEventListener('click', () => selectOption(index, option, question));
-        
-        optionsContainer.appendChild(optionDiv);
+        button.addEventListener('click', () => selectAnswer(index, option, question));
+        answersContainer.appendChild(button);
     });
-    
-    // Update navigation buttons
-    document.getElementById('prevBtn').style.display = 
-        currentQuestionIndex > 0 ? 'flex' : 'none';
-    
-    const nextBtn = document.getElementById('nextBtn');
-    nextBtn.textContent = currentQuestionIndex === questions.length - 1 ? 'Finish' : 'Next';
-    
-    // Add animation
-    optionsContainer.style.animation = 'none';
-    setTimeout(() => {
-        optionsContainer.style.animation = 'slideUp 0.5s ease-out';
-    }, 10);
 }
 
-function selectOption(index, option, question) {
-    // Remove previous selection
-    document.querySelectorAll('.option').forEach(opt => {
-        opt.classList.remove('selected');
+function selectAnswer(index, option, question) {
+    // Visual feedback - select the answer
+    const buttons = document.querySelectorAll('.answer-option');
+    buttons.forEach((btn, idx) => {
+        btn.classList.remove('selected');
+        if (idx === index) {
+            btn.classList.add('selected');
+        }
     });
     
-    // Add selection to clicked option
-    const selectedOption = document.querySelector(`.option[data-index="${index}"]`);
-    selectedOption.classList.add('selected');
-    
-    // Store answer
-    answers[currentQuestionIndex] = {
+    // Store answer with question number and text for chatbot context
+    userAnswers[currentQuestionIndex] = {
         questionId: question.id,
+        questionNumber: currentQuestionIndex + 1,
+        questionText: question.question,
         category: question.category,
         optionIndex: index,
+        selectedOption: option.text,
         co2: option.co2
     };
     
-    // Enable next button
-    document.getElementById('nextBtn').disabled = false;
-}
-
-function nextQuestion() {
-    if (!answers[currentQuestionIndex]) {
-        return;
-    }
+    console.log(`✅ Stored answer for Question ${currentQuestionIndex + 1}:`, userAnswers[currentQuestionIndex]);
+    console.log(`Total answers stored so far: ${userAnswers.filter(a => a != null).length}`);
     
-    if (currentQuestionIndex < questions.length - 1) {
+    // Auto-advance to next question after a short delay
+    setTimeout(() => {
         currentQuestionIndex++;
-        document.getElementById('nextBtn').disabled = true;
-        displayQuestion();
-    } else {
-        finishQuiz();
-    }
-}
-
-function previousQuestion() {
-    if (currentQuestionIndex > 0) {
-        currentQuestionIndex--;
-        displayQuestion();
-    }
+        if (currentQuestionIndex < questions.length) {
+            displayQuestion();
+        } else {
+            finishQuiz();
+        }
+    }, 300);
 }
 
 async function finishQuiz() {
     try {
-        // Store answers for chatbot context
-        userAnswers = answers;
+        // Filter out any undefined/null values from userAnswers
+        const validAnswers = userAnswers.filter(answer => answer != null && answer !== undefined);
+        
+        console.log('📊 FINAL QUIZ SUBMISSION:');
+        console.log('Raw userAnswers array:', userAnswers);
+        console.log('Filtered valid answers:', validAnswers);
+        console.log('Original array length:', userAnswers.length, 'Valid answers:', validAnswers.length);
+        console.log('Question numbers in submission:', validAnswers.map(a => a.questionNumber));
         
         // Send answers to backend
         const response = await fetch('/calculate-results', {
@@ -177,16 +202,51 @@ async function finishQuiz() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ answers })
+            body: JSON.stringify({ answers: validAnswers })
         });
         
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error:', errorText);
+            throw new Error(`Server returned ${response.status}`);
+        }
+        
         const results = await response.json();
+        console.log('Results received:', results);
+        
+        // Store results for chatbot
+        currentResults = results;
         
         // Display results
         displayResults(results);
         
         // Switch to results screen
-        switchScreen('resultsScreen');
+        showPage('results-page');
+        
+        // Auto-open chatbot after a delay
+        setTimeout(() => {
+            if (!isChatbotOpen) {
+                const chatbot = document.getElementById('chatbot');
+                chatbot.classList.add('open');
+                isChatbotOpen = true;
+                
+                // Add welcome message
+                const diff = currentResults.total_difference;
+                let message = "🎉 Results are in! ";
+                if (diff > 0) {
+                    message += `You're ${diff} kg above average. Let's find your easiest wins to close that gap! What questions do you have?`;
+                } else if (diff < 0) {
+                    message += `Nice work - you're ${Math.abs(diff)} kg below average! Want to go even further? I've got ideas! 🌱`;
+                } else {
+                    message += "You're right at average. Ready to level up your eco-game? Let's chat!";
+                }
+                
+                addMessageToChat(message, 'bot');
+                updateChatbotStatus();
+            }
+        }, 1500);
     } catch (error) {
         console.error('Error calculating results:', error);
         alert('Failed to calculate results. Please try again.');
@@ -195,90 +255,84 @@ async function finishQuiz() {
 
 function displayResults(data) {
     // Update total emissions
-    document.getElementById('totalEmissions').textContent = 
-        data.total_emissions.toLocaleString();
+    document.getElementById('total-co2').textContent = `${data.total_emissions.toLocaleString()} kg CO2`;
     
-    // Update comparison text
-    const comparisonText = document.getElementById('comparisonText');
-    const difference = data.total_difference;
+    // Create results breakdown
+    const breakdownContainer = document.getElementById('results-breakdown');
+    breakdownContainer.innerHTML = '';
     
-    if (difference < 0) {
-        comparisonText.className = 'comparison better';
-        comparisonText.innerHTML = `
-            <i class="fas fa-check-circle"></i>
-            ${Math.abs(difference).toLocaleString()} kg below average! 🎉
-        `;
-    } else if (difference > 0) {
-        comparisonText.className = 'comparison worse';
-        comparisonText.innerHTML = `
-            <i class="fas fa-exclamation-circle"></i>
-            ${difference.toLocaleString()} kg above average
-        `;
-    } else {
-        comparisonText.className = 'comparison';
-        comparisonText.innerHTML = `
-            <i class="fas fa-equals"></i>
-            Right at average
-        `;
-    }
-    
-    // Create category results
-    const categoryResults = document.getElementById('categoryResults');
-    categoryResults.innerHTML = '';
-    
-    data.results.forEach((result, index) => {
+    data.results.forEach(result => {
         const categoryDiv = createCategoryResult(result);
-        categoryResults.appendChild(categoryDiv);
+        breakdownContainer.appendChild(categoryDiv);
     });
 }
 
 function createCategoryResult(result) {
+    const iconClass = categoryIcons[result.category];
+    const average = result.average || 0;
+    
+    // Calculate percentages for bar chart
+    const maxValue = Math.max(result.emissions, average) * 1.2;
+    const userPercent = (result.emissions / maxValue) * 100;
+    const avgPercent = (average / maxValue) * 100;
+    
     const div = document.createElement('div');
     div.className = 'category-result';
     
-    const iconClass = categoryIcons[result.category];
-    const difference = result.difference;
-    const comparisonClass = difference < 0 ? 'better' : 'worse';
-    const comparisonText = difference < 0 
-        ? `${Math.abs(difference)} kg below average 🌱`
-        : `${difference} kg above average`;
-    
     div.innerHTML = `
-        <div class="category-header">
-            <div class="category-title">
+        <div class="category-result-header">
+            <div class="category-info">
                 <div class="category-icon">
                     <i class="fas ${iconClass}"></i>
                 </div>
-                <h3>${result.category}</h3>
+                <h3 class="category-name">${result.category}</h3>
             </div>
             <div class="category-emissions">
-                <div class="emissions-number">${result.emissions.toLocaleString()}</div>
-                <div class="emissions-label">kg CO₂/year</div>
-                <div class="emissions-comparison ${comparisonClass}">
-                    ${comparisonText}
-                </div>
+                <div class="emissions-label">Your Daily Emissions</div>
+                <div class="emissions-value">${result.emissions.toFixed(1)} kg CO2</div>
             </div>
         </div>
         
-        <div class="tips-section">
-            <h4><i class="fas fa-lightbulb"></i> Recommended Actions</h4>
-            <ul class="tips-list">
-                ${result.tips.map(tip => `<li>${tip}</li>`).join('')}
-            </ul>
+        <div class="comparison-bar">
+            <div class="comparison-label">
+                <span>You: ${result.emissions.toFixed(1)} kg</span>
+                <span>Average: ${average.toFixed(1)} kg</span>
+            </div>
+            <div class="bar-container">
+                <div class="bar-average" style="width: ${avgPercent}%"></div>
+                <div class="bar-user" style="width: ${userPercent}%"></div>
+            </div>
         </div>
         
-        <div class="products-section">
-            <h4><i class="fas fa-shopping-cart"></i> Sustainable Products</h4>
-            <div class="products-grid">
-                ${result.products.map(product => `
-                    <div class="product-card" onclick="window.open('${product.link}', '_blank')">
-                        <img src="${product.image}" alt="${product.name}" class="product-image">
-                        <div class="product-info">
-                            <div class="product-name">${product.name}</div>
-                            <div class="product-description">${product.description}</div>
-                            <div class="product-price">${product.price}</div>
+        <div class="recommendations">
+            <h4 class="recommendations-title">
+                <i class="fas fa-lightbulb"></i> Recommendations
+            </h4>
+            <div class="recommendation-list">
+                ${result.tips.map(tip => `
+                    <div class="recommendation-item">
+                        <div class="recommendation-icon">
+                            <i class="fas fa-check-circle"></i>
                         </div>
+                        <div class="recommendation-text">${tip}</div>
                     </div>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div class="products">
+            <h4 class="products-title">
+                <i class="fas fa-shopping-cart"></i> Recommended Products
+            </h4>
+            <div class="product-grid">
+                ${result.products.map(product => `
+                    <a href="${product.link}" class="product-card" target="_blank" rel="noopener">
+                        <div class="product-image">
+                            ${product.image ? `<img src="${product.image}" alt="${product.name}" />` : `<i class="fas ${iconClass}"></i>`}
+                        </div>
+                        <div class="product-name">${product.name}</div>
+                        <div class="product-price">${product.price}</div>
+                    </a>
                 `).join('')}
             </div>
         </div>
@@ -287,74 +341,9 @@ function createCategoryResult(result) {
     return div;
 }
 
-function retakeQuiz() {
-    switchScreen('startScreen');
-    currentQuestionIndex = 0;
-    answers = [];
-}
-
-function shareResults() {
-    const totalEmissions = document.getElementById('totalEmissions').textContent;
-    const text = `I just calculated my carbon footprint: ${totalEmissions} kg CO₂/year! Calculate yours and help save the planet! 🌍`;
-    
-    if (navigator.share) {
-        navigator.share({
-            title: 'EcoTrace - My Carbon Footprint',
-            text: text,
-            url: window.location.href
-        }).catch(err => console.log('Error sharing:', err));
-    } else {
-        // Fallback: copy to clipboard
-        navigator.clipboard.writeText(text + ' ' + window.location.href)
-            .then(() => {
-                alert('Results copied to clipboard!');
-            })
-            .catch(err => {
-                console.error('Could not copy text:', err);
-            });
-    }
-}
-
-function switchScreen(screenId) {
-    // Remove active class from all screens
-    document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.remove('active');
-    });
-    
-    // Add active class to target screen
-    document.getElementById(screenId).classList.add('active');
-    
-    // Update screen context for chatbot
-    if (screenId === 'startScreen') {
-        currentScreenContext = 'start';
-        currentQuestionContext = null;
-    } else if (screenId === 'quizScreen') {
-        currentScreenContext = 'quiz';
-    } else if (screenId === 'resultsScreen') {
-        currentScreenContext = 'results';
-        currentQuestionContext = null; // Clear question context on results page
-        console.log('✅ Switched to Results - Question context cleared');
-    }
-    
-    // Update chatbot status if open
-    if (isChatbotOpen) {
-        updateChatbotStatus();
-    }
-    
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// ===== CHATBOT FUNCTIONALITY =====
-
-let chatSessionId = 'session_' + Date.now();
-let currentResults = null;
-let isChatbotOpen = false;
-let currentScreenContext = 'start';
-let currentQuestionContext = null;
-let userAnswers = null; // Store user's quiz answers
-
-// Initialize chatbot event listeners
+// ===================================
+// Chatbot Functionality
+// ===================================
 function initializeChatbot() {
     const chatToggleBtn = document.getElementById('chatToggleBtn');
     const closeChatBtn = document.getElementById('closeChatBtn');
@@ -364,23 +353,21 @@ function initializeChatbot() {
     
     // Toggle chatbot
     chatToggleBtn.addEventListener('click', () => {
-        chatbot.classList.add('active');
+        chatbot.classList.add('open');
         isChatbotOpen = true;
         chatInput.focus();
         
-        // Debug: Log current context when opening chatbot
         console.log('Chatbot opened - Current context:', {
             screen: currentScreenContext,
             question: currentQuestionContext
         });
         
-        // Update status indicator
         updateChatbotStatus();
     });
     
     // Close chatbot
     closeChatBtn.addEventListener('click', () => {
-        chatbot.classList.remove('active');
+        chatbot.classList.remove('open');
         isChatbotOpen = false;
     });
     
@@ -422,25 +409,27 @@ async function sendChatMessage() {
     
     // Hide suggestions after first message
     const suggestionsDiv = document.getElementById('chatSuggestions');
-    if (suggestionsDiv.style.display !== 'none') {
+    if (suggestionsDiv && suggestionsDiv.style.display !== 'none') {
         suggestionsDiv.style.display = 'none';
     }
     
     try {
         // Prepare context data
+        // Filter out null/undefined from userAnswers before sending
+        const validAnswers = userAnswers ? userAnswers.filter(a => a != null) : null;
+        
         const contextData = {
             message: message,
             results: currentResults,
             session_id: chatSessionId,
             screen_context: currentScreenContext,
             current_question: currentQuestionContext,
-            user_answers: userAnswers // Include user's quiz answers
+            user_answers: validAnswers
         };
         
-        // Debug: Log what we're sending
         console.log('Sending to chatbot:', contextData);
         
-        // Send message to backend with screen context
+        // Send message to backend
         const response = await fetch('/chat', {
             method: 'POST',
             headers: {
@@ -449,21 +438,24 @@ async function sendChatMessage() {
             body: JSON.stringify(contextData)
         });
         
+        // Check if response is OK
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
         // Remove typing indicator
-        removeTypingIndicator();
+        hideTypingIndicator();
         
         if (data.success) {
-            // Add bot response to chat
             addMessageToChat(data.message, 'bot');
         } else {
-            // Show error message
             addMessageToChat(data.message || 'Sorry, I encountered an error. Please try again.', 'bot');
         }
     } catch (error) {
         console.error('Chat error:', error);
-        removeTypingIndicator();
+        hideTypingIndicator();
         addMessageToChat('Sorry, I\'m having trouble connecting. Please check your internet connection and try again.', 'bot');
     }
 }
@@ -487,11 +479,11 @@ function addMessageToChat(message, sender) {
     
     // Clean and format the message
     let formattedMessage = message
-        // Remove markdown bold/italic (not supported in our UI)
-        .replace(/\*\*(.+?)\*\*/g, '$1')  // Remove **bold**
-        .replace(/\*(.+?)\*/g, '$1')       // Remove *italic*
-        .replace(/\_\_(.+?)\_\_/g, '$1')  // Remove __bold__
-        .replace(/\_(.+?)\_/g, '$1');     // Remove _italic_
+        // Remove markdown bold/italic
+        .replace(/\*\*(.+?)\*\*/g, '$1')
+        .replace(/\*(.+?)\*/g, '$1')
+        .replace(/\_\_(.+?)\_\_/g, '$1')
+        .replace(/\_(.+?)\_/g, '$1');
     
     // Split into lines and convert to HTML
     const lines = formattedMessage.split('\n');
@@ -501,14 +493,14 @@ function addMessageToChat(message, sender) {
     for (let line of lines) {
         const trimmed = line.trim();
         
-        // Handle bullet points (-, •, or *)
+        // Handle bullet points
         if (trimmed.match(/^[-•\*]\s/)) {
             if (!inList) {
                 html += '<ul>';
                 inList = true;
             }
             html += `<li>${trimmed.substring(1).trim()}</li>`;
-        } 
+        }
         // Handle numbered lists
         else if (trimmed.match(/^\d+\.\s/)) {
             if (!inList) {
@@ -544,70 +536,23 @@ function addMessageToChat(message, sender) {
 }
 
 function showTypingIndicator() {
-    const chatMessages = document.getElementById('chatMessages');
-    const typingDiv = document.createElement('div');
-    typingDiv.className = 'chat-message bot-message typing-indicator-message';
-    typingDiv.id = 'typingIndicator';
-    
-    typingDiv.innerHTML = `
-        <div class="message-avatar">
-            <i class="fas fa-leaf"></i>
-        </div>
-        <div class="message-content">
-            <div class="typing-indicator">
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-            </div>
-        </div>
-    `;
-    
-    chatMessages.appendChild(typingDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-function removeTypingIndicator() {
     const typingIndicator = document.getElementById('typingIndicator');
     if (typingIndicator) {
-        typingIndicator.remove();
+        typingIndicator.style.display = 'flex';
+        
+        // Scroll to bottom
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 }
 
-// Store results when they're calculated for chatbot context
-const originalFinishQuiz = finishQuiz;
-finishQuiz = async function() {
-    await originalFinishQuiz();
-    
-    // Open chatbot automatically after results with a welcome message
-    setTimeout(() => {
-        if (!isChatbotOpen) {
-            document.getElementById('chatbot').classList.add('active');
-            isChatbotOpen = true;
-            
-            // Add a contextual welcome message
-            const diff = currentResults.total_difference;
-            let message = "🎉 Results are in! ";
-            if (diff > 0) {
-                message += `You're ${diff} kg above average. Let's find your easiest wins to close that gap! What questions do you have?`;
-            } else if (diff < 0) {
-                message += `Nice work - you're ${Math.abs(diff)} kg below average! Want to go even further? I've got ideas! 🌱`;
-            } else {
-                message += "You're right at average. Ready to level up your eco-game? Let's chat!";
-            }
-            
-            addMessageToChat(message, 'bot');
-        }
-    }, 1500);
-};
+function hideTypingIndicator() {
+    const typingIndicator = document.getElementById('typingIndicator');
+    if (typingIndicator) {
+        typingIndicator.style.display = 'none';
+    }
+}
 
-// Override displayResults to capture results for chatbot
-const originalDisplayResults = displayResults;
-displayResults = function(data) {
-    currentResults = data;
-    originalDisplayResults(data);
-};
-
-// Update chatbot status indicator
 function updateChatbotStatus() {
     const statusEl = document.getElementById('chatbotStatus');
     if (!statusEl) return;
@@ -620,9 +565,3 @@ function updateChatbotStatus() {
         statusEl.textContent = '🌱 Your sustainability guide';
     }
 }
-
-// Initialize chatbot when page loads
-document.addEventListener('DOMContentLoaded', () => {
-    initializeChatbot();
-});
-
